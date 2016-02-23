@@ -22,7 +22,8 @@
 
 (def SQSInputTaskMap
   (merge os/TaskMap 
-         {:sqs/queue-name s/Str
+         {(s/optional-key :sqs/queue-name) s/Str
+          (s/optional-key :sqs/queue-url) s/Str
           :onyx/batch-size max-batch-size
           :sqs/deserializer-fn os/NamespacedKeyword
           :sqs/idle-backoff-ms os/PosInt}))
@@ -30,12 +31,12 @@
 (def SQSOutputTaskMap
   (merge os/TaskMap 
          {(s/optional-key :sqs/queue-name) s/Str
+          (s/optional-key :sqs/queue-url) s/Str
           :sqs/serializer-fn os/NamespacedKeyword
           :onyx/batch-size max-batch-size}))
 
 (s/defn ^:always-validate sqs-input
   [task-name :- s/Keyword 
-   queue-name :- s/Str 
    deserializer-fn :- os/NamespacedKeyword 
    idle-backoff-ms :- s/Int 
    task-opts :- {s/Any s/Any}]
@@ -48,7 +49,6 @@
                             :sqs/deserializer-fn deserializer-fn
                             :sqs/attribute-names []
                             :sqs/idle-backoff-ms idle-backoff-ms
-                            :sqs/queue-name queue-name
                             :onyx/doc "Reads segments from an SQS queue"}
                            task-opts)
           :lifecycles []}

@@ -36,12 +36,15 @@ Catalog entry:
  :onyx/doc "Reads segments from an SQS queue"}
 ```
 
+In lieu of `:sqs/queue-name`, the url of the queue can be suppied via `:sqs/queue-url`.
+
 #### Attributes
 
 |key                           | type      | description
 |------------------------------|-----------|------------
 |`:sqs/deserializer-fn`        | `keyword` | A keyword pointing to a fully qualified function that will deserialize the :body of the queue entry from a string
 |`:sqs/queue-name`             | `string`  | The SQS queue name
+|`:sqs/queue-url`              | `string`  | The SQS queue url, in lieu of sqs/queue-name
 |`:sqs/attribute-names`        | `[string]`| A list of attributes to fetch for the queue entry 
 |`:sqs/idle-backoff-ms`        | `int`     | Backoff on empty read for backoff ms in order to reduce SQS per request costs
 
@@ -64,7 +67,7 @@ Catalog entry:
  :onyx/doc "Writes segments to SQS queues"}
 ```
 
-Segments received at this task must have a body key in string form, which will be written to the queue defined in the key `:sqs/queue-name`, OR `:sqs/queue-url` in the task-map, or via the key `:queue-url` in the segment. Note that queue-name and queue-url are in different formats, with the queue-name being in the form "yourqueuename" and queue-url in the form `https://sqs.us-east-1.amazonaws.com/039384834151/e3668c38-4`.
+Segments received at this task must have a body key in string form, which will be written to the queue defined in the key `:sqs/queue-name`, OR `:sqs/queue-url` in the task-map, or via the key `:queue-url` in the segment. Note that queue-name and queue-url are in different formats, with the queue-name being in the form `"yourqueuename"` and queue-url in the form `https://sqs.us-east-1.amazonaws.com/039384834151/e3668c38-4`.
 
 #### Attributes
 

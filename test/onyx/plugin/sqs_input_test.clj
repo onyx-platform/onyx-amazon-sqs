@@ -56,7 +56,8 @@
 				   :lifecycle/calls ::out-calls}
 				  {:lifecycle/task :out
 				   :lifecycle/calls :onyx.plugin.core-async/writer-calls}]}
-		    (task/add-task (task/sqs-input :in queue-name ::clojure.edn/read-string 50 {:onyx/pending-timeout 8000})))
+                    (task/add-task (task/sqs-input :in ::clojure.edn/read-string 50 {:sqs/queue-name queue-name
+                                                                                     :onyx/pending-timeout 8000})))
 	    n-messages 1000
 	    input-messages (map (fn [v] {:n v}) (range n-messages))]
 	(reset! out-chan (chan 50000))
@@ -68,7 +69,7 @@
 	  (is (= (count results) 
 		 (count (set (map :body results)))))
 
-	  (is (= (sort input-messages) 
-		 (sort-by :n (map :body results)))))))
+          (is (= input-messages 
+                 (sort-by :n (map :body results)))))))
 
     (sqs/delete-queue queue)))

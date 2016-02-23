@@ -74,13 +74,16 @@
         batch-timeout (arg-or-default :onyx/batch-timeout task-map)
         pending-messages (atom {})
         client ^AmazonSQS (sqs/new-async-client) 
-        queue-url (sqs/get-queue-url client (:sqs/queue-name task-map))
+        {:keys [sqs/idle-backoff-ms sqs/attribute-names sqs/deserializer-fn sqs/queue-url sqs/queue-name]} task-map
+        _ (when (and queue-url queue-name)
+            (throw (ex-info "Do not define both sqs/queue-url and sqs/queue-name as they both map to queue urls." task-map)))
+        queue-url (or queue-url (sqs/get-queue-url client queue-name))
         idle-backoff-ms (:sqs/idle-backoff-ms task-map)
-        {:keys [sqs/idle-backoff-ms sqs/attribute-names sqs/deserializer-fn]} task-map
         deserializer-fn (kw->fn deserializer-fn)
         max-wait-time-secs (int (/ batch-timeout 1000))
         queue-attributes (sqs/queue-attributes client queue-url)
         visibility-timeout (Integer/parseInt (get queue-attributes "VisibilityTimeout"))]
+
     (when (<= (* visibility-timeout 1000) pending-timeout)
       (throw (ex-info "Pending timeout should be substantially smaller than the VisibilityTimeout on the SQS queue, otherwise SQS will timeout the message prior to the pending-timeout being hit.
                        Note that pending-timeout is in ms, whereas queue visibility timeout is in seconds."
