@@ -7,7 +7,7 @@ Onyx plugin for Amazon SQS.
 In your project file:
 
 ```clojure
-[onyx-amazon-sqs "0.8.11.1-SNAPSHOT"]
+[onyx-amazon-sqs "0.8.11.1"]
 ```
 
 In your peer boot-up namespace:
