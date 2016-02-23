@@ -30,9 +30,10 @@ Catalog entry:
  :onyx/medium :sqs
  :onyx/batch-size 10
  :onyx/batch-timeout 1000
+ :sqs/queue-name queue-name
+ :sqs/deserializer-fn :clojure.edn/read-string
  :sqs/attribute-names []
  :sqs/idle-backoff-ms idle-backoff-ms
- :sqs/queue-name queue-name
  :onyx/doc "Reads segments from an SQS queue"}
 ```
 
