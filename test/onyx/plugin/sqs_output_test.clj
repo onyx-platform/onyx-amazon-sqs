@@ -4,7 +4,7 @@
             [onyx.plugin.core-async :refer [take-segments!]]
 	    [amazonica.aws.sqs :as sqs]
 	    [onyx.plugin.sqs :as s]
-            [onyx.plugin.sqs-input]
+            [onyx.plugin.sqs-output]
 	    [onyx.plugin.tasks.sqs :as task]
             [onyx.test-helper :refer [load-config with-test-env add-test-env-peers! feedback-exception!]]
             [onyx.api]))

@@ -20,13 +20,22 @@
                  (rem batch-timeout 1000)))
           'min-batch-timeout-divisible-1000))
 
+(def queue-name-or-queue-url
+  (s/pred (fn [task-map]
+            (or (and (string? (:sqs/queue-url task-map))
+                     (nil? (:sqs/queue-name task-map)))
+                (and (nil? (:sqs/queue-url task-map))
+                     (string? (:sqs/queue-name task-map)))))
+          'queue-name-XOR-queue-url-defined?))
+
 (def SQSInputTaskMap
-  (merge os/TaskMap 
-         {(s/optional-key :sqs/queue-name) s/Str
-          (s/optional-key :sqs/queue-url) s/Str
-          :onyx/batch-size max-batch-size
-          :sqs/deserializer-fn os/NamespacedKeyword
-          :sqs/idle-backoff-ms os/PosInt}))
+  (s/->Both [queue-name-or-queue-url
+             (merge os/TaskMap 
+                    {(s/optional-key :sqs/queue-name) s/Str
+                     (s/optional-key :sqs/queue-url) s/Str
+                     :onyx/batch-size max-batch-size
+                     :sqs/deserializer-fn os/NamespacedKeyword
+                     :sqs/idle-backoff-ms os/PosInt})]))
 
 (def SQSOutputTaskMap
   (merge os/TaskMap 
