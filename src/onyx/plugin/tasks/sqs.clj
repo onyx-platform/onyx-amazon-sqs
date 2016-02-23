@@ -24,21 +24,28 @@
   (merge os/TaskMap 
          {:sqs/queue-name s/Str
           :onyx/batch-size max-batch-size
+          :sqs/deserializer-fn os/NamespacedKeyword
           :sqs/idle-backoff-ms os/PosInt}))
 
 (def SQSOutputTaskMap
   (merge os/TaskMap 
          {(s/optional-key :sqs/queue-name) s/Str
+          :sqs/serializer-fn os/NamespacedKeyword
           :onyx/batch-size max-batch-size}))
 
 (s/defn ^:always-validate sqs-input
-  [task-name :- s/Keyword queue-name :- s/Str idle-backoff-ms :- s/Int task-opts :- {s/Any s/Any}]
+  [task-name :- s/Keyword 
+   queue-name :- s/Str 
+   deserializer-fn :- os/NamespacedKeyword 
+   idle-backoff-ms :- s/Int 
+   task-opts :- {s/Any s/Any}]
   {:task {:task-map (merge {:onyx/name task-name
                             :onyx/plugin :onyx.plugin.sqs-input/input
                             :onyx/type :input
                             :onyx/medium :sqs
                             :onyx/batch-size 10
                             :onyx/batch-timeout 1000
+                            :sqs/deserializer-fn deserializer-fn
                             :sqs/attribute-names []
                             :sqs/idle-backoff-ms idle-backoff-ms
                             :sqs/queue-name queue-name
@@ -49,12 +56,15 @@
             :lifecycles [os/Lifecycle]}})
 
 (s/defn ^:always-validate sqs-output
-  [task-name :- s/Keyword task-opts :- {s/Any s/Any}]
+  [task-name :- s/Keyword 
+   serializer-fn :- os/NamespacedKeyword 
+   task-opts :- {s/Any s/Any}]
   {:task {:task-map (merge {:onyx/name :out
                             :onyx/plugin :onyx.plugin.sqs-output/output
                             :onyx/type :output
                             :onyx/medium :sqs
                             :onyx/batch-size 10
+                            :sqs/serializer-fn serializer-fn
                             :onyx/doc "Writes segments to SQS queues"}
                            task-opts)
           :lifecycles []}

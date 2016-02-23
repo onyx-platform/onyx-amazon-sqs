@@ -4,42 +4,57 @@
             [onyx.plugin.sqs :as sqs]
             [onyx.static.default-vals :refer [defaults arg-or-default]]
             [onyx.types :as t]
+            [onyx.peer.operation :refer [kw->fn]]
             [onyx.plugin.tasks.sqs :refer [SQSInputTaskMap]]
             [schema.core :as s]
-            [taoensso.timbre :refer [debug info] :as timbre])
-  (:import [com.amazonaws.services.sqs AmazonSQS AmazonSQSClient AmazonSQSAsync AmazonSQSAsyncClient]))
+            [taoensso.timbre :refer [debug info warn] :as timbre])
+  (:import [com.amazonaws.services.sqs AmazonSQS AmazonSQSClient AmazonSQSAsync AmazonSQSAsyncClient]
+           [com.amazonaws AmazonClientException]))
 
 (defrecord SqsInput 
-  [max-pending batch-size batch-timeout pending-messages ^AmazonSQS client queue-url idle-backoff-ms attribute-names max-wait-time-secs]
+  [deserializer-fn max-pending batch-size batch-timeout pending-messages ^AmazonSQS client queue-url idle-backoff-ms attribute-names max-wait-time-secs]
   p-ext/Pipeline
   (write-batch 
     [this event]
     (function/write-batch event))
 
   (read-batch [_ event]
-    (let [pending (count @pending-messages)
-          max-segments (min (- max-pending pending) batch-size)
-          received (sqs/receive-messages client queue-url max-segments attribute-names max-wait-time-secs)
-          batch (map #(t/input (java.util.UUID/randomUUID) %) received)]
-      (if (empty? batch)
-        (Thread/sleep idle-backoff-ms)
-        (doseq [m batch]
-          (swap! pending-messages assoc (:id m) (:message m))))
-      {:onyx.core/batch batch}))
+    (try 
+      (let [pending (count @pending-messages)
+            max-segments (min (- max-pending pending) batch-size)
+            received (sqs/receive-messages client queue-url max-segments attribute-names max-wait-time-secs)
+            deserialized (map #(update % :body deserializer-fn) received)
+            batch (map #(t/input (java.util.UUID/randomUUID) %) deserialized)]
+        (if (empty? batch)
+          (Thread/sleep idle-backoff-ms)
+          (doseq [m batch]
+            (swap! pending-messages assoc (:id m) (:message m))))
+        {:onyx.core/batch batch})
+      (catch AmazonClientException e
+        (warn e "sqs-input: read-batch receive messages error")
+        {:onyx.core/batch []})))
 
   (seal-resource [this event])
 
   p-ext/PipelineInput
   (ack-segment [_ _ segment-id]
-    (->> (@pending-messages segment-id)
-         :receipt-handle
-         (sqs/delete-message-async client queue-url))
+    (try 
+      ;; Delete the message from the queue as it is fully acked
+      (->> (@pending-messages segment-id)
+           :receipt-handle
+           (sqs/delete-message-async client queue-url))
+      (catch AmazonClientException e
+        (warn e "sqs-input: ack-segment error on delete message")))
     (swap! pending-messages dissoc segment-id))
 
   (retry-segment 
     [_ event segment-id]
-    (let [message-id (:message-id (@pending-messages segment-id))] 
-      (sqs/change-visibility-request-async client queue-url message-id))
+    (try 
+      (let [message-id (:message-id (@pending-messages segment-id))] 
+        ;; Change visibility on message to 0 so that SQS will retry the message through read-batch
+        (sqs/change-visibility-request-async client queue-url message-id 0))
+        (catch AmazonClientException e
+          (warn e "sqs-input: retry-segment, error on change visibility request")))
     (swap! pending-messages dissoc segment-id))
 
   (pending?
@@ -61,7 +76,8 @@
         client ^AmazonSQS (sqs/new-async-client) 
         queue-url (sqs/get-queue-url client (:sqs/queue-name task-map))
         idle-backoff-ms (:sqs/idle-backoff-ms task-map)
-        {:keys [sqs/idle-backoff-ms sqs/attribute-names]} task-map
+        {:keys [sqs/idle-backoff-ms sqs/attribute-names sqs/deserializer-fn]} task-map
+        deserializer-fn (kw->fn deserializer-fn)
         max-wait-time-secs (int (/ batch-timeout 1000))
         queue-attributes (sqs/queue-attributes client queue-url)
         visibility-timeout (Integer/parseInt (get queue-attributes "VisibilityTimeout"))]
@@ -70,5 +86,5 @@
                        Note that pending-timeout is in ms, whereas queue visibility timeout is in seconds."
                       {:onyx/pending-timeout pending-timeout
                        "VisibilityTimeout" visibility-timeout})))
-    (->SqsInput max-pending batch-size batch-timeout pending-messages client queue-url idle-backoff-ms 
-                attribute-names max-wait-time-secs)))
+    (->SqsInput deserializer-fn max-pending batch-size batch-timeout pending-messages client 
+                queue-url idle-backoff-ms attribute-names max-wait-time-secs)))

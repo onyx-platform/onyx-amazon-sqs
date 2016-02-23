@@ -80,7 +80,6 @@
   [^AmazonSQSAsync client ^String queue-url messages ^AsyncHandler handler]
   (.sendMessageBatchAsync client (send-message-batch-request queue-url messages) handler))
 
-(defn change-visibility-request-async [^AmazonSQSAsync client ^String queue-url message-id]
-  (let [visibility-request ^ChangeMessageVisibilityRequest (ChangeMessageVisibilityRequest. queue-url message-id 0)] 
+(defn change-visibility-request-async [^AmazonSQSAsync client ^String queue-url message-id visibility-time]
+  (let [visibility-request ^ChangeMessageVisibilityRequest (ChangeMessageVisibilityRequest. queue-url message-id visibility-time)] 
     (.changeMessageVisibilityAsync client visibility-request)))
-
