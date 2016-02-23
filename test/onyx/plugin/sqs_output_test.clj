@@ -44,10 +44,12 @@
 		     :onyx.messaging/bind-addr "localhost"}
 	queue-name (apply str (take 10 (str (java.util.UUID/randomUUID))))
 	created (sqs/create-queue :queue-name queue-name
-				  :attributes {:VisibilityTimeout 60})
+                                  :attributes {:VisibilityTimeout 60
+                                               :MessageRetentionPeriod 180})
 	non-default-queue-name (apply str (take 10 (str (java.util.UUID/randomUUID))))
         non-default-queue (sqs/create-queue :queue-name non-default-queue-name
-                                            :attributes {:VisibilityTimeout 60})
+                                            :attributes {:VisibilityTimeout 60
+                                                         :MessageRetentionPeriod 180})
 	queue (sqs/find-queue queue-name)]
     (with-test-env [test-env [3 env-config peer-config]]
       (let [batch-size 10

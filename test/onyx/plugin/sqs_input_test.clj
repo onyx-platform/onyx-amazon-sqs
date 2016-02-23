@@ -33,7 +33,8 @@
 		     :onyx.messaging/bind-addr "localhost"}
 	queue-name (apply str (take 10 (str (java.util.UUID/randomUUID))))
 	created (sqs/create-queue :queue-name queue-name
-				  :attributes {:VisibilityTimeout 10})
+				  :attributes {:VisibilityTimeout 10
+                                               :MessageRetentionPeriod 180})
 	queue (sqs/find-queue queue-name)]
     (with-test-env [test-env [3 env-config peer-config]]
       (let [batch-size 10
@@ -57,6 +58,7 @@
 				  {:lifecycle/task :out
 				   :lifecycle/calls :onyx.plugin.core-async/writer-calls}]}
                     (task/add-task (task/sqs-input :in ::clojure.edn/read-string 50 {:sqs/queue-name queue-name
+                                                                                     :onyx/batch-timeout 1000
                                                                                      :onyx/pending-timeout 8000})))
 	    n-messages 1000
 	    input-messages (map (fn [v] {:n v}) (range n-messages))]
