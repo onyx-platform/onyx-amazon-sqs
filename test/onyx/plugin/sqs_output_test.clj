@@ -58,7 +58,7 @@
                                    :lifecycle/calls ::in-calls}
                                   {:lifecycle/task :in
                                    :lifecycle/calls :onyx.plugin.core-async/reader-calls}]}
-                    (task/add-task (task/sqs-output :out queue-name {})))
+                    (task/add-task (task/sqs-output :out {:sqs/queue-name queue-name})))
             n-messages 100
             _ (reset! in-chan (chan (inc n-messages)))
             input-messages (map #(hash-map :n %) (range n-messages))]

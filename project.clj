@@ -1,6 +1,6 @@
-(defproject onyx-amazon-sqs "0.8.2.0-SNAPSHOT"
+(defproject onyx-amazon-sqs "0.8.12.0-SNAPSHOT"
   :description "Onyx plugin for Amazon SQS"
-  :url "FIX ME"
+  :url "https://github.com/onyx-platform/onyx-amazon-sqs"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.8.0"]

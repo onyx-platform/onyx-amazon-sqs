@@ -54,6 +54,7 @@
   (let [task-map (:onyx.core/task-map event)
         _ (s/validate SQSInputTaskMap task-map)
         max-pending (arg-or-default :onyx/max-pending task-map)
+        pending-timeout (arg-or-default :onyx/pending-timeout task-map)
         batch-size (:onyx/batch-size task-map)
         batch-timeout (arg-or-default :onyx/batch-timeout task-map)
         pending-messages (atom {})
@@ -61,6 +62,13 @@
         queue-url (sqs/get-queue-url client (:sqs/queue-name task-map))
         idle-backoff-ms (:sqs/idle-backoff-ms task-map)
         {:keys [sqs/idle-backoff-ms sqs/attribute-names]} task-map
-        max-wait-time-secs (int (/ batch-timeout 1000))]
+        max-wait-time-secs (int (/ batch-timeout 1000))
+        queue-attributes (sqs/queue-attributes client queue-url)
+        visibility-timeout (Integer/parseInt (get queue-attributes "VisibilityTimeout"))]
+    (when (<= (* visibility-timeout 1000) pending-timeout)
+      (throw (ex-info "Pending timeout should be substantially smaller than the VisibilityTimeout on the SQS queue, otherwise SQS will timeout the message prior to the pending-timeout being hit.
+                       Note that pending-timeout is in ms, whereas queue visibility timeout is in seconds."
+                      {:onyx/pending-timeout pending-timeout
+                       "VisibilityTimeout" visibility-timeout})))
     (->SqsInput max-pending batch-size batch-timeout pending-messages client queue-url idle-backoff-ms 
                 attribute-names max-wait-time-secs)))

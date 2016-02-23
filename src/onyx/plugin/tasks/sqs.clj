@@ -49,11 +49,9 @@
             :lifecycles [os/Lifecycle]}})
 
 (s/defn ^:always-validate sqs-output
-  [task-name :- s/Keyword queue-name :- s/Str task-opts :- {s/Any s/Any}]
+  [task-name :- s/Keyword task-opts :- {s/Any s/Any}]
   {:task {:task-map (merge {:onyx/name :out
                             :onyx/plugin :onyx.plugin.sqs-output/output
-                            :sqs/queue-name queue-name
-                            :sqs/idle-backoff-ms 50
                             :onyx/type :output
                             :onyx/medium :sqs
                             :onyx/batch-size 10

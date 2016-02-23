@@ -5,20 +5,9 @@
            [com.amazonaws.services.sqs.buffered AmazonSQSBufferedAsyncClient]
 	   [com.amazonaws.handlers AsyncHandler]
 	   [com.amazonaws.services.sqs.model 
-            SendMessageBatchRequest SendMessageBatchRequestEntry
+            SendMessageBatchRequest SendMessageBatchRequestEntry GetQueueAttributesRequest
 	    ChangeMessageVisibilityRequest DeleteMessageRequest CreateQueueRequest CreateQueueResult GetQueueUrlResult
 	    Message ReceiveMessageRequest ReceiveMessageResult]))
-
-
-;; Attributes is a hashmap containing any of the following
-;; DelaySeconds - The time in seconds that the delivery of all messages in the queue will be delayed. An integer from 0 to 900 (15 minutes). The default for this attribute is 0 (zero).
-;; MaximumMessageSize - The limit of how many bytes a message can contain before Amazon SQS rejects it. An integer from 1024 bytes (1 KiB) up to 262144 bytes (256 KiB). The default for this attribute is 262144 (256 KiB).
-;; MessageRetentionPeriod - The number of seconds Amazon SQS retains a message. Integer representing seconds, from 60 (1 minute) to 1209600 (14 days). The default for this attribute is 345600 (4 days).
-;; Policy - The queue's policy. A valid AWS policy. For more information about policy structure, see Overview of AWS IAM Policies in the Amazon IAM User Guide.
-;; ReceiveMessageWaitTimeSeconds - The time for which a ReceiveMessage call will wait for a message to arrive. An integer from 0 to 20 (seconds). The default for this attribute is 0.
-;; VisibilityTimeout - The visibility timeout for the queue. An integer from 0 to 43200 (12 hours). The default for this attribute is 30. For more information about visibility timeout, see Visibility Timeout in the Amazon SQS Developer Guide.
-;; DelaySeconds - The time in seconds that the delivery of all messages in the queue will be delayed. An integer from 0 to 900  ()
-
 
 (defn new-async-client ^AmazonSQSAsync []
   (let [credentials (DefaultAWSCredentialsProviderChain.)]
@@ -44,6 +33,12 @@
 
 (defn get-queue-url [^AmazonSQS client ^String queue-name]
   (.getQueueUrl ^GetQueueUrlResult (.getQueueUrl client queue-name)))
+
+(defn queue-attributes [^AmazonSQS client ^String queue-url]
+  (into {} (.getAttributes 
+             (.getQueueAttributes client 
+                                  (.withAttributeNames (GetQueueAttributesRequest. queue-url) 
+                                                       ["All"])))))
 
 (defn receive-request ^ReceiveMessageRequest 
   [^AmazonSQS client queue-url max-num-messages attribute-names wait-time-secs]
@@ -81,14 +76,11 @@
 (defn send-message-batch [^AmazonSQS client ^String queue-url messages]
   (.sendMessageBatch client (send-message-batch-request queue-url messages)))
 
-(defn send-message-batch-async [^AmazonSQSAsync client ^String queue-url messages ^AsyncHandler handler]
+(defn send-message-batch-async 
+  [^AmazonSQSAsync client ^String queue-url messages ^AsyncHandler handler]
   (.sendMessageBatchAsync client (send-message-batch-request queue-url messages) handler))
 
 (defn change-visibility-request-async [^AmazonSQSAsync client ^String queue-url message-id]
   (let [visibility-request ^ChangeMessageVisibilityRequest (ChangeMessageVisibilityRequest. queue-url message-id 0)] 
     (.changeMessageVisibilityAsync client visibility-request)))
 
-; (defn send-message-batch-async [client queue-url messages success-fn]
-;   (.sendMessageBatchAsync client 
-;                      (send-message-batch-request queue-url messages) 
-;                      AsyncWriteCallback))
