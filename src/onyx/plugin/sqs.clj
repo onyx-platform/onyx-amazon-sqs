@@ -4,18 +4,21 @@
            [com.amazonaws.services.sqs AmazonSQS AmazonSQSClient AmazonSQSAsync AmazonSQSAsyncClient]
            [com.amazonaws.services.sqs.buffered AmazonSQSBufferedAsyncClient]
 	   [com.amazonaws.handlers AsyncHandler]
+           [com.amazonaws.regions RegionUtils]
 	   [com.amazonaws.services.sqs.model 
             SendMessageBatchRequest SendMessageBatchRequestEntry GetQueueAttributesRequest
 	    ChangeMessageVisibilityRequest DeleteMessageRequest CreateQueueRequest CreateQueueResult GetQueueUrlResult
 	    Message ReceiveMessageRequest ReceiveMessageResult]))
 
-(defn new-async-client ^AmazonSQSAsync []
+(defn new-async-client ^AmazonSQS [^String region]
   (let [credentials (DefaultAWSCredentialsProviderChain.)]
-    (AmazonSQSAsyncClient. credentials)))
+    (doto (AmazonSQSAsyncClient. credentials)
+      (.setRegion (RegionUtils/getRegion region)))))
 
-(defn new-client ^AmazonSQS []
+(defn new-client ^AmazonSQS [^String region]
   (let [credentials (DefaultAWSCredentialsProviderChain.)]
-    (AmazonSQSClient. credentials)))
+    (doto (AmazonSQSClient. credentials)
+      (.setRegion (RegionUtils/getRegion region)))))
 
 ;; Attributes is a hashmap containing any of the following strings
 ;; DelaySeconds - The time in seconds that the delivery of all messages in the queue will be delayed. An integer from 0 to 900 (15 minutes). The default for this attribute is 0 (zero).

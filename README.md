@@ -30,6 +30,7 @@ Catalog entry:
  :onyx/medium :sqs
  :onyx/batch-size 10
  :onyx/batch-timeout 1000
+ :sqs/region "us-east-1"
  :sqs/queue-name queue-name
  :sqs/deserializer-fn :clojure.edn/read-string
  :sqs/attribute-names []
@@ -46,6 +47,7 @@ SQS only supports batching up to 10 messages, which limits `:onyx/batch-size` to
 |key                           | type      | description
 |------------------------------|-----------|------------
 |`:sqs/deserializer-fn`        | `keyword` | A keyword pointing to a fully qualified function that will deserialize the :body of the queue entry from a string
+|`:sqs/region`                 | `string`  | The SQS region to use
 |`:sqs/queue-name`             | `string`  | The SQS queue name
 |`:sqs/queue-url`              | `string`  | The SQS queue url, in lieu of sqs/queue-name
 |`:sqs/attribute-names`        | `[string]`| A list of attributes to fetch for the queue entry 
@@ -62,7 +64,7 @@ Catalog entry:
 {:onyx/name <<TASK_NAME>>
  :onyx/plugin :onyx.plugin.sqs-output/output
  :sqs/queue-name <<OPTIONAL_QUEUE_NAME>>
- :sqs/queue-url <<OPTIONAL_QUEUE_URL>>
+ :sqs/region "us-east-1"
  :sqs/serializer-fn :clojure.core/pr-str
  :onyx/type :output
  :onyx/medium :sqs
@@ -78,6 +80,7 @@ SQS only supports batching up to 10 messages, which limits `:onyx/batch-size` to
 
 |key                           | type      | description
 |------------------------------|-----------|------------
+|`:sqs/region`                 | `string`  | The SQS region to use
 |`:sqs/queue-name`             | `string`  | Optional SQS queue name. If not present, segments will be routed via the `:queue-url` key of the segment
 |`:sqs/queue-url`              | `string`  | Optional SQS queue url. If not present, segments will be routed via the `:queue-url` key of the segment
 |`:sqs/serializer-fn`          | `keyword` | A keyword pointing to a fully qualified function that will serialize the :body key of the segment to a string

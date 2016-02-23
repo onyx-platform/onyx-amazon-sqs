@@ -3,6 +3,7 @@
             [clojure.test :refer [deftest is testing]]
             [onyx.plugin.core-async :refer [take-segments!]]
 	    [amazonica.aws.sqs :as sqs]
+            [amazonica.core :as ac]
 	    [onyx.plugin.sqs :as s]
             [onyx.plugin.sqs-output]
 	    [onyx.plugin.tasks.sqs :as task]
@@ -27,6 +28,8 @@
                       (range tries))))
 
 (def serializer-fn read-string)
+
+(def region "us-east-1")
 
 (deftest sqs-output-test
   (let [id (java.util.UUID/randomUUID)
@@ -73,7 +76,10 @@
                                    :lifecycle/calls ::in-calls}
                                   {:lifecycle/task :in
                                    :lifecycle/calls :onyx.plugin.core-async/reader-calls}]}
-                    (task/add-task (task/sqs-output :out ::serializer-fn {:sqs/queue-name queue-name})))
+                    (task/add-task (task/sqs-output :out 
+                                                    region
+                                                    ::serializer-fn 
+                                                    {:sqs/queue-name queue-name})))
             n-messages 100
             _ (reset! in-chan (chan (inc (* 2 n-messages))))
             input-messages (map (fn [v] {:body {:n v}}) 

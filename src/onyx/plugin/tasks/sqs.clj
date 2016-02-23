@@ -33,6 +33,7 @@
              (merge os/TaskMap 
                     {(s/optional-key :sqs/queue-name) s/Str
                      (s/optional-key :sqs/queue-url) s/Str
+                     :sqs/region s/Str
                      :onyx/batch-size max-batch-size
                      :sqs/deserializer-fn os/NamespacedKeyword
                      :sqs/idle-backoff-ms os/PosInt})]))
@@ -41,11 +42,13 @@
   (merge os/TaskMap 
          {(s/optional-key :sqs/queue-name) s/Str
           (s/optional-key :sqs/queue-url) s/Str
+          :sqs/region s/Str
           :sqs/serializer-fn os/NamespacedKeyword
           :onyx/batch-size max-batch-size}))
 
 (s/defn ^:always-validate sqs-input
   [task-name :- s/Keyword 
+   region :- s/Str
    deserializer-fn :- os/NamespacedKeyword 
    idle-backoff-ms :- s/Int 
    task-opts :- {s/Any s/Any}]
@@ -55,6 +58,7 @@
                             :onyx/medium :sqs
                             :onyx/batch-size 10
                             :onyx/batch-timeout 1000
+                            :sqs/region region
                             :sqs/deserializer-fn deserializer-fn
                             :sqs/attribute-names []
                             :sqs/idle-backoff-ms idle-backoff-ms
@@ -66,6 +70,7 @@
 
 (s/defn ^:always-validate sqs-output
   [task-name :- s/Keyword 
+   region :- s/Str
    serializer-fn :- os/NamespacedKeyword 
    task-opts :- {s/Any s/Any}]
   {:task {:task-map (merge {:onyx/name :out
@@ -73,6 +78,7 @@
                             :onyx/type :output
                             :onyx/medium :sqs
                             :onyx/batch-size 10
+                            :sqs/region region
                             :sqs/serializer-fn serializer-fn
                             :onyx/doc "Writes segments to SQS queues"}
                            task-opts)

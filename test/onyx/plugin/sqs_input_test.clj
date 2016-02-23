@@ -3,6 +3,7 @@
             [clojure.test :refer [deftest is testing]]
             [onyx.plugin.core-async :refer [take-segments!]]
 	    [amazonica.aws.sqs :as sqs]
+            [amazonica.core :as ac]
 	    [onyx.plugin.sqs :as s]
 	    [onyx.plugin.tasks.sqs :as task]
             [onyx.plugin.sqs-input]
@@ -16,6 +17,8 @@
 
 (def out-calls
   {:lifecycle/before-task-start inject-out-ch})
+
+(def region "us-east-1")
 
 (deftest sqs-input-test
   (let [id (java.util.UUID/randomUUID)
@@ -57,9 +60,13 @@
 				   :lifecycle/calls ::out-calls}
 				  {:lifecycle/task :out
 				   :lifecycle/calls :onyx.plugin.core-async/writer-calls}]}
-                    (task/add-task (task/sqs-input :in ::clojure.edn/read-string 50 {:sqs/queue-name queue-name
-                                                                                     :onyx/batch-timeout 1000
-                                                                                     :onyx/pending-timeout 8000})))
+                    (task/add-task (task/sqs-input :in 
+                                                   region
+                                                   ::clojure.edn/read-string 
+                                                   50 
+                                                   {:sqs/queue-name queue-name
+                                                    :onyx/batch-timeout 1000
+                                                    :onyx/pending-timeout 8000})))
 	    n-messages 1000
 	    input-messages (map (fn [v] {:n v}) (range n-messages))]
 	(reset! out-chan (chan 50000))

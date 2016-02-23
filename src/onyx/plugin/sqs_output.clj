@@ -69,8 +69,8 @@
 (defn output [event]
   (let [task-map (:onyx.core/task-map event)
         _ (s/validate SQSOutputTaskMap task-map)
-        client ^AmazonSQS (sqs/new-async-client) 
-        {:keys [sqs/queue-url sqs/queue-name sqs/serializer-fn]} task-map
+        {:keys [sqs/queue-url sqs/queue-name sqs/serializer-fn sqs/region]} task-map
+        client ^AmazonSQS (sqs/new-async-client region)
         serializer-fn (kw->fn serializer-fn)
         default-queue-url (or queue-url 
                               (if queue-name 
