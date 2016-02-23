@@ -24,7 +24,7 @@ Catalog entry:
 
 ```clojure
 {:onyx/name :entry-name
- :onyx/plugin :onyx.plugin.sqs/input
+ :onyx/plugin :onyx.plugin.sqs-input/input
  :onyx/type :input
  :onyx/medium :sqs
  :onyx/batch-size batch-size
