@@ -76,7 +76,7 @@ Segments received at this task must have a body key in string form, which will b
 
 #### Acknowledgments
 
-Many thanks to [LockedOn](http://www.lockedon.com), for allowing this work to be open
+Many thanks to [LockedOn](http://www.lockedon.com) for allowing this work to be open
 sourced and contributed back to the Onyx Platform community.
 
 #### Contributing
