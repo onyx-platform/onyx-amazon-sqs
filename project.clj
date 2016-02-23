@@ -12,7 +12,7 @@
                              :password :env
                              :sign-releases false}}
   :dependencies [[org.clojure/clojure "1.8.0"]
-                 [org.onyxplatform/onyx "0.8.12-SNAPSHOT"]
+                 [org.onyxplatform/onyx "0.8.11"]
                  [com.amazonaws/aws-java-sdk "1.10.49"]]
   :global-vars  {*warn-on-reflection* true}
   :profiles {:dev {:dependencies [[amazonica "0.3.50"]]
