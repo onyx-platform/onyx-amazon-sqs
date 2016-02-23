@@ -1,4 +1,4 @@
-(defproject onyx-sqs "0.8.2.0-SNAPSHOT"
+(defproject onyx-amazon-sqs "0.8.2.0-SNAPSHOT"
   :description "Onyx plugin for Amazon SQS"
   :url "FIX ME"
   :license {:name "Eclipse Public License"

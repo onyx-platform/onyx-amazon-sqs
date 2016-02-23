@@ -1,6 +1,6 @@
-## onyx-sqs
+## onyx-amazon-sqs
 
-Onyx plugin for sqs.
+Onyx plugin for Amazon SQS.
 
 #### Installation
 
