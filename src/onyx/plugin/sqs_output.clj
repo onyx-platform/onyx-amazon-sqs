@@ -9,7 +9,7 @@
             [onyx.peer.operation :refer [kw->fn]]
             [onyx.types :refer [dec-count! inc-count!]]
             [schema.core :as s]
-            [taoensso.timbre :refer [debug info warn] :as timbre])
+            [taoensso.timbre :refer [debug info warn error] :as timbre])
   (:import [com.amazonaws.services.sqs AmazonSQS AmazonSQSClient AmazonSQSAsync AmazonSQSAsyncClient]
            [com.amazonaws AmazonClientException]
 	   [com.amazonaws.handlers AsyncHandler]))
@@ -31,14 +31,18 @@
 
 (def serialization-fn str)
 
-(defn build-callback-handler [peer-replica-view messenger acks]
+(defn build-ack-callback [peer-replica-view messenger acks]
   (reify AsyncHandler
     (onSuccess [this request result]
-      (doseq [ack acks] 
-        (when (dec-count! ack)
-          (when-let [site (peer-site peer-replica-view (:completion-id ack))]
-            (extensions/internal-ack-segment messenger site ack)))))
-    (onError [this e])))
+      (try 
+        (doseq [ack acks] 
+          (when (dec-count! ack)
+            (when-let [site (peer-site peer-replica-view (:completion-id ack))]
+              (extensions/internal-ack-segment messenger site ack))))
+        (catch Throwable t
+          (error t "sqs-output: error in ack handler"))))
+    (onError [this e]
+      (warn e "sqs-output: batch send failed"))))
 
 (defrecord SqsOutput [serializer-fn ^AmazonSQS client default-queue-url]
   p-ext/Pipeline
@@ -48,19 +52,18 @@
 
   (write-batch 
     [_ {:keys [onyx.core/results onyx.core/peer-replica-view onyx.core/messenger] :as event}]
-    ;; Should map serializer function here
-    (run! (fn [[batch-queue-url segment-acks]]
-            (try 
-              (let [acks (map second segment-acks)
-                    segments (map (comp serialization-fn :body first) segment-acks)
-                    callback (build-callback-handler peer-replica-view messenger acks)]
-                ;; Increment ack reference count because we are writing async
-                (run! inc-count! acks)
-                (sqs/send-message-batch-async client batch-queue-url segments callback))
+    (let [segments-acks (results->segments-acks results default-queue-url)] 
+      (run! inc-count! (map second segments-acks))
+      (run! (fn [[batch-queue-url s]]
+              (try 
+                (let [acks (map second s)
+                      segments (map (comp serialization-fn :body first) s)
+                      callback (build-ack-callback peer-replica-view messenger acks)]
+                  ;; Increment ack reference count because we are writing async
+                  (sqs/send-message-batch-async client batch-queue-url segments callback))
                 (catch AmazonClientException e
                   (warn e "sqs-output: write-batch caught exception"))))
-          (group-by (comp :queue-url first) 
-                    (results->segments-acks results default-queue-url)))
+            (group-by (comp :queue-url first) segments-acks)))
     {})
 
   (seal-resource 

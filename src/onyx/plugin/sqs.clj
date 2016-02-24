@@ -5,10 +5,10 @@
            [com.amazonaws.services.sqs.buffered AmazonSQSBufferedAsyncClient]
 	   [com.amazonaws.handlers AsyncHandler]
            [com.amazonaws.regions RegionUtils]
-	   [com.amazonaws.services.sqs.model 
+           [com.amazonaws.services.sqs.model 
             SendMessageBatchRequest SendMessageBatchRequestEntry GetQueueAttributesRequest
-	    ChangeMessageVisibilityRequest DeleteMessageRequest CreateQueueRequest CreateQueueResult GetQueueUrlResult
-	    Message ReceiveMessageRequest ReceiveMessageResult]))
+            ChangeMessageVisibilityRequest DeleteMessageRequest CreateQueueRequest CreateQueueResult 
+            GetQueueUrlResult DeleteQueueRequest Message ReceiveMessageRequest ReceiveMessageResult]))
 
 (defn new-async-client ^AmazonSQS [^String region]
   (let [credentials (DefaultAWSCredentialsProviderChain.)]
@@ -31,8 +31,11 @@
 (defn create-queue [^AmazonSQS client queue-name attributes]
   (.getQueueUrl ^CreateQueueResult 
                 (.createQueue client 
-                              (doto (CreateQueueRequest. queue-name)
-                                (.setAttributes attributes)))))
+                              (-> (CreateQueueRequest. queue-name)
+                                  (.withAttributes attributes)))))
+
+(defn delete-queue [^AmazonSQS client ^String queue-name]
+  (.deleteQueue client (DeleteQueueRequest. queue-name)))
 
 (defn get-queue-url [^AmazonSQS client ^String queue-name]
   (.getQueueUrl ^GetQueueUrlResult (.getQueueUrl client queue-name)))

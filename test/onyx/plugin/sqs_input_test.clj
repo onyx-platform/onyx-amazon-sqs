@@ -2,8 +2,6 @@
   (:require [clojure.core.async :refer [chan >!! <!! close! sliding-buffer timeout alts!!]]
             [clojure.test :refer [deftest is testing]]
             [onyx.plugin.core-async :refer [take-segments!]]
-	    [amazonica.aws.sqs :as sqs]
-            [amazonica.core :as ac]
 	    [onyx.plugin.sqs :as s]
 	    [onyx.plugin.tasks.sqs :as task]
             [onyx.plugin.sqs-input]
@@ -22,24 +20,23 @@
 
 (deftest sqs-input-test
   (let [id (java.util.UUID/randomUUID)
-	env-config {:onyx/id id
-		    :zookeeper/address "127.0.0.1:2188"
-		    :zookeeper/server? true
-		    :zookeeper.server/port 2188}
-	peer-config {:onyx/id id
-		     :zookeeper/address "127.0.0.1:2188"
-		     :onyx.peer/job-scheduler :onyx.job-scheduler/greedy
-		     :onyx.messaging.aeron/embedded-driver? true
-		     :onyx.messaging/allow-short-circuit? false
-		     :onyx.messaging/impl :aeron
-		     :onyx.messaging/peer-port 40200
-		     :onyx.messaging/bind-addr "localhost"}
-	queue-name (apply str (take 10 (str (java.util.UUID/randomUUID))))
-	created (sqs/create-queue :queue-name queue-name
-				  :attributes {:VisibilityTimeout 10
-                                               :MessageRetentionPeriod 180})
-	queue (sqs/find-queue queue-name)]
-    (with-test-env [test-env [3 env-config peer-config]]
+        env-config {:onyx/id id
+                    :zookeeper/address "127.0.0.1:2188"
+                    :zookeeper/server? true
+                    :zookeeper.server/port 2188}
+        peer-config {:onyx/id id
+                     :zookeeper/address "127.0.0.1:2188"
+                     :onyx.peer/job-scheduler :onyx.job-scheduler/greedy
+                     :onyx.messaging.aeron/embedded-driver? true
+                     :onyx.messaging/allow-short-circuit? false
+                     :onyx.messaging/impl :aeron
+                     :onyx.messaging/peer-port 40200
+                     :onyx.messaging/bind-addr "localhost"}
+        queue-name (apply str (take 10 (str (java.util.UUID/randomUUID))))
+        client (s/new-client region)
+        queue (s/create-queue client queue-name {"VisibilityTimeout" "20"
+                                                 "MessageRetentionPeriod" "320"})]
+    (with-test-env [test-env [8 env-config peer-config]]
       (let [batch-size 10
 	    job (-> {:workflow [[:in :identity] [:identity :out]]
 		     :task-scheduler :onyx.task-scheduler/balanced
@@ -47,6 +44,7 @@
 			       {:onyx/name :identity
 				:onyx/fn :clojure.core/identity
 				:onyx/type :function
+                                :onyx/max-peers 1
 				:onyx/batch-size batch-size}
 
 			       {:onyx/name :out
@@ -66,11 +64,13 @@
                                                    50 
                                                    {:sqs/queue-name queue-name
                                                     :onyx/batch-timeout 1000
-                                                    :onyx/pending-timeout 8000})))
-	    n-messages 1000
-	    input-messages (map (fn [v] {:n v}) (range n-messages))]
-	(reset! out-chan (chan 50000))
-	(doall (pmap #(sqs/send-message queue %) (map pr-str input-messages)))
+                                                    :onyx/pending-timeout 10000})))
+	    n-messages 500
+	    input-messages (map (fn [v] {:n v}) (range n-messages))
+            send-result (doall (pmap #(s/send-message-batch client queue %)
+                                     (partition-all 10 (map pr-str input-messages))))]
+	(reset! out-chan (chan 1000000))
+        
 	(let [job-id (:job-id (onyx.api/submit-job peer-config job))
 	      timeout-ch (timeout 60000)
 	      results (vec (keep first (repeatedly n-messages #(alts!! [timeout-ch @out-chan] :priority true))))]
@@ -81,4 +81,4 @@
           (is (= input-messages 
                  (sort-by :n (map :body results)))))))
 
-    (sqs/delete-queue queue)))
+    (s/delete-queue client queue)))
