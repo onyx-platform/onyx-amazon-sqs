@@ -73,7 +73,7 @@
    region :- s/Str
    serializer-fn :- os/NamespacedKeyword 
    task-opts :- {s/Any s/Any}]
-  {:task {:task-map (merge {:onyx/name :out
+  {:task {:task-map (merge {:onyx/name task-name
                             :onyx/plugin :onyx.plugin.sqs-output/output
                             :onyx/type :output
                             :onyx/medium :sqs
