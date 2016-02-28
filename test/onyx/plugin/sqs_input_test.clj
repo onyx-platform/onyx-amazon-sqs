@@ -16,7 +16,7 @@
 (def out-calls
   {:lifecycle/before-task-start inject-out-ch})
 
-(def region "ap-southeast-1")
+(def region "us-east-1")
 
 (deftest sqs-input-test
   (let [id (java.util.UUID/randomUUID)
