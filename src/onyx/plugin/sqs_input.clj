@@ -78,7 +78,7 @@
         deserializer-fn (kw->fn deserializer-fn)
         max-wait-time-secs (int (/ batch-timeout 1000))
         client (sqs/new-async-buffered-client region {:max-batch-open-ms batch-timeout
-                                                      :param-long-poll true
+                                                      :param-long-poll (not (zero? batch-timeout))
                                                       :long-poll-timeout max-wait-time-secs}) 
         queue-url (or queue-url (sqs/get-queue-url client queue-name))
         queue-attributes (sqs/queue-attributes client queue-url)

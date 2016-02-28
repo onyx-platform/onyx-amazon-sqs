@@ -14,10 +14,9 @@
                                    (<= batch-size 10)))
                             'max-sqs-batch-size-10))
 
-(def batch-timeout
+(def batch-timeout-check
   (s/pred (fn [batch-timeout] 
-            (and (>= batch-timeout 1000)
-                 (rem batch-timeout 1000)))
+            (zero? (rem batch-timeout 1000)))
           'min-batch-timeout-divisible-1000))
 
 (def queue-name-or-queue-url
@@ -30,21 +29,24 @@
 
 (def SQSInputTaskMap
   (s/->Both [queue-name-or-queue-url
-             (merge os/TaskMap 
-                    {(s/optional-key :sqs/queue-name) s/Str
-                     (s/optional-key :sqs/queue-url) s/Str
-                     :sqs/region s/Str
-                     :onyx/batch-size max-batch-size
-                     :sqs/deserializer-fn os/NamespacedKeyword
-                     :sqs/idle-backoff-ms os/PosInt})]))
+             os/TaskMap
+             {(s/optional-key :sqs/queue-name) s/Str
+              (s/optional-key :sqs/queue-url) s/Str
+              :sqs/region s/Str
+              :onyx/batch-size max-batch-size
+              :onyx/batch-timeout batch-timeout-check
+              :sqs/deserializer-fn os/NamespacedKeyword
+              :sqs/idle-backoff-ms os/PosInt
+              s/Any s/Any}]))
 
 (def SQSOutputTaskMap
-  (merge os/TaskMap 
-         {(s/optional-key :sqs/queue-name) s/Str
-          (s/optional-key :sqs/queue-url) s/Str
-          :sqs/region s/Str
-          :sqs/serializer-fn os/NamespacedKeyword
-          :onyx/batch-size max-batch-size}))
+  (s/->Both [os/TaskMap 
+             {(s/optional-key :sqs/queue-name) s/Str
+              (s/optional-key :sqs/queue-url) s/Str
+              :sqs/region s/Str
+              :sqs/serializer-fn os/NamespacedKeyword
+              :onyx/batch-size max-batch-size
+              s/Any s/Any}]))
 
 (s/defn ^:always-validate sqs-input
   ([task-name task-opts]
