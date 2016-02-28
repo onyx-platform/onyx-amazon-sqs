@@ -2,7 +2,7 @@
   (:import [com.amazonaws AmazonClientException]
            [com.amazonaws.auth DefaultAWSCredentialsProviderChain]
            [com.amazonaws.services.sqs AmazonSQS AmazonSQSClient AmazonSQSAsync AmazonSQSAsyncClient]
-           [com.amazonaws.services.sqs.buffered AmazonSQSBufferedAsyncClient]
+           [com.amazonaws.services.sqs.buffered AmazonSQSBufferedAsyncClient QueueBufferConfig]
 	   [com.amazonaws.handlers AsyncHandler]
            [com.amazonaws.regions RegionUtils]
            [com.amazonaws.services.sqs.model 
@@ -10,7 +10,7 @@
             ChangeMessageVisibilityRequest DeleteMessageRequest CreateQueueRequest CreateQueueResult 
             GetQueueUrlResult DeleteQueueRequest Message ReceiveMessageRequest ReceiveMessageResult]))
 
-(defn new-async-client ^AmazonSQS [^String region]
+(defn new-async-client ^AmazonSQSAsync [^String region]
   (let [credentials (DefaultAWSCredentialsProviderChain.)]
     (doto (AmazonSQSAsyncClient. credentials)
       (.setRegion (RegionUtils/getRegion region)))))
@@ -20,6 +20,22 @@
     (doto (AmazonSQSClient. credentials)
       (.setRegion (RegionUtils/getRegion region)))))
 
+(defn new-async-buffered-client ^AmazonSQSAsync 
+  ([^String region {:keys [max-batch-open-ms max-inflight-outbound-batches max-inflight-receive-batches max-done-receive-batches 
+                           param-long-poll max-batch-size-bytes visibility-timeout long-poll-timeout max-batch]}]
+   (AmazonSQSBufferedAsyncClient. (new-async-client region) 
+                                  (QueueBufferConfig. (or max-batch-open-ms QueueBufferConfig/MAX_BATCH_OPEN_MS_DEFAULT)
+                                                      (or max-inflight-outbound-batches QueueBufferConfig/MAX_INFLIGHT_OUTBOUND_BATCHES_DEFAULT)
+                                                      (or max-inflight-receive-batches QueueBufferConfig/MAX_INFLIGHT_RECEIVE_BATCHES_DEFAULT)
+                                                      (or max-done-receive-batches QueueBufferConfig/MAX_DONE_RECEIVE_BATCHES_DEFAULT)
+                                                      (or param-long-poll false)
+                                                      (or max-batch-size-bytes QueueBufferConfig/SERVICE_MAX_BATCH_SIZE_BYTES)
+                                                      (or visibility-timeout QueueBufferConfig/VISIBILITY_TIMEOUT_SECONDS_DEFAULT)
+                                                      (or long-poll-timeout QueueBufferConfig/LONGPOLL_WAIT_TIMEOUT_SECONDS_DEFAULT)
+                                                      (or max-batch QueueBufferConfig/MAX_BATCH_SIZE_DEFAULT))))
+  ([^String region]
+   (AmazonSQSBufferedAsyncClient. (new-async-client region))))
+
 ;; Attributes is a hashmap containing any of the following strings
 ;; DelaySeconds - The time in seconds that the delivery of all messages in the queue will be delayed. An integer from 0 to 900 (15 minutes). The default for this attribute is 0 (zero).
 ;; MaximumMessageSize - The limit of how many bytes a message can contain before Amazon SQS rejects it. An integer from 1024 bytes (1 KiB) up to 262144 bytes (256 KiB). The default for this attribute is 262144 (256 KiB).
@@ -27,7 +43,7 @@
 ;; Policy - The queue's policy. A valid AWS policy. For more information about policy structure, see Overview of AWS IAM Policies in the Amazon IAM User Guide.
 ;; ReceiveMessageWaitTimeSeconds - The time for which a ReceiveMessage call will wait for a message to arrive. An integer from 0 to 20 (seconds). The default for this attribute is 0.
 ;; VisibilityTimeout - The visibility timeout for the queue. An integer from 0 to 43200 (12 hours). The default for this attribute is 30. For more information about visibility timeout, see Visibility Timeout in the Amazon SQS Developer Guide.
-;; DelaySeconds - The time in seconds that the delivery of all messages in the queue will be delayed. An integer from 0 to 900  ()
+;; DelaySeconds - The time in seconds that the delivery of all messages in the queue will be delayed. An integer from 0 to 900 
 (defn create-queue [^AmazonSQS client queue-name attributes]
   (.getQueueUrl ^CreateQueueResult 
                 (.createQueue client 
