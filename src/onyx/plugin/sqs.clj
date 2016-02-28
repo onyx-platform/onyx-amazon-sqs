@@ -7,8 +7,8 @@
            [com.amazonaws.regions RegionUtils]
            [com.amazonaws.services.sqs.model 
             SendMessageBatchRequest SendMessageBatchRequestEntry GetQueueAttributesRequest
-            ChangeMessageVisibilityRequest DeleteMessageRequest CreateQueueRequest CreateQueueResult 
-            GetQueueUrlResult DeleteQueueRequest Message ReceiveMessageRequest ReceiveMessageResult]))
+            SendMessageRequest ChangeMessageVisibilityRequest DeleteMessageRequest 
+            CreateQueueRequest CreateQueueResult GetQueueUrlResult DeleteQueueRequest Message ReceiveMessageRequest ReceiveMessageResult]))
 
 (defn new-async-client ^AmazonSQSAsync [^String region]
   (let [credentials (DefaultAWSCredentialsProviderChain.)]
@@ -63,12 +63,18 @@
                                                        ["All"])))))
 
 (defn receive-request ^ReceiveMessageRequest 
-  [^AmazonSQS client queue-url max-num-messages attribute-names wait-time-secs]
-  (doto (ReceiveMessageRequest.)
-    (.withMaxNumberOfMessages (int max-num-messages))
-    (.setAttributeNames attribute-names)
-    (.setWaitTimeSeconds (int wait-time-secs))
-    (.withQueueUrl queue-url)))
+  [^AmazonSQS client 
+   ^String queue-url 
+   max-num-messages 
+   ^java.util.Collection attribute-names 
+   wait-time-secs]
+  (let [req ^ReceiveMessageRequest (ReceiveMessageRequest.)] 
+    (.withQueueUrl 
+      (.withAttributeNames 
+        (.withMaxNumberOfMessages req ^Integer 
+                                  (int max-num-messages)) 
+        attribute-names)
+      queue-url)))
 
 (defn message->clj [^Message msg]
   {:attributes (into {} (.getAttributes msg))
@@ -79,8 +85,11 @@
 
 (defn receive-messages [^AmazonSQS client queue-url max-num-messages attribute-names wait-time-secs]
   (let [request (receive-request client queue-url max-num-messages attribute-names wait-time-secs)
-        result ^ReceiveMessageResult (.receiveMessage client request)]
+        result (.receiveMessage client request)]
     (doall (map message->clj (.getMessages result)))))
+
+(defn receive-message [^AmazonSQSAsync client ^String queue-url]
+  (doall (message->clj (.receiveMessage client queue-url))))
 
 (defn delete-message [^AmazonSQS client ^String queue-url ^String receipt-handle]
   (.deleteMessage client queue-url receipt-handle))
@@ -101,6 +110,12 @@
 (defn send-message-batch-async 
   [^AmazonSQSAsync client ^String queue-url messages ^AsyncHandler handler]
   (.sendMessageBatchAsync client (send-message-batch-request queue-url messages) handler))
+
+(defn send-message [^AmazonSQS client ^String queue-url ^String message]
+  (.sendMessage client (SendMessageRequest. queue-url message)))
+
+(defn send-message-async [^AmazonSQSAsync client ^String queue-url ^String message]
+  (.sendMessageAsync client (SendMessageRequest. queue-url message)))
 
 (defn change-visibility-request-async [^AmazonSQSAsync client ^String queue-url message-id visibility-time]
   (let [visibility-request ^ChangeMessageVisibilityRequest (ChangeMessageVisibilityRequest. queue-url message-id visibility-time)] 

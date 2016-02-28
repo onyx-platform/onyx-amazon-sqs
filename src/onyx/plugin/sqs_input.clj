@@ -75,12 +75,12 @@
         batch-timeout (arg-or-default :onyx/batch-timeout task-map)
         pending-messages (atom {})
         {:keys [sqs/idle-backoff-ms sqs/attribute-names sqs/deserializer-fn sqs/queue-url sqs/queue-name sqs/region]} task-map
-        client (sqs/new-async-buffered-client region {:max-batch-open-ms batch-timeout
-                                                      :long-poll-timeout 0}) 
-        queue-url (or queue-url (sqs/get-queue-url client queue-name))
-        idle-backoff-ms (:sqs/idle-backoff-ms task-map)
         deserializer-fn (kw->fn deserializer-fn)
         max-wait-time-secs (int (/ batch-timeout 1000))
+        client (sqs/new-async-buffered-client region {:max-batch-open-ms batch-timeout
+                                                      :param-long-poll true
+                                                      :long-poll-timeout max-wait-time-secs}) 
+        queue-url (or queue-url (sqs/get-queue-url client queue-name))
         queue-attributes (sqs/queue-attributes client queue-url)
         visibility-timeout (Integer/parseInt (get queue-attributes "VisibilityTimeout"))]
     (info "Task" (:onyx/name task-map) "opened SQS input queue" queue-url)
