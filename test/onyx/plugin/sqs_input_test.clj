@@ -16,7 +16,7 @@
 (def out-calls
   {:lifecycle/before-task-start inject-out-ch})
 
-(def region "us-east-1")
+(def region "ap-southeast-1")
 
 (deftest sqs-input-test
   (let [id (java.util.UUID/randomUUID)
@@ -33,10 +33,10 @@
                      :onyx.messaging/peer-port 40200
                      :onyx.messaging/bind-addr "localhost"}
         queue-name (apply str (take 10 (str (java.util.UUID/randomUUID))))
-        client (s/new-client region)
+        client (s/new-async-buffered-client region)
         queue (s/create-queue client queue-name {"VisibilityTimeout" "20"
                                                  "MessageRetentionPeriod" "320"})]
-    (with-test-env [test-env [8 env-config peer-config]]
+    (with-test-env [test-env [3 env-config peer-config]]
       (let [batch-size 10
 	    job (-> {:workflow [[:in :identity] [:identity :out]]
 		     :task-scheduler :onyx.task-scheduler/balanced
@@ -67,8 +67,8 @@
                                                     :onyx/pending-timeout 10000})))
 	    n-messages 500
 	    input-messages (map (fn [v] {:n v}) (range n-messages))
-            send-result (doall (pmap #(s/send-message-batch client queue %)
-                                     (partition-all 10 (map pr-str input-messages))))]
+            send-result (time (doall (pmap #(s/send-message-batch client queue %)
+                                     (partition-all 10 (map pr-str input-messages)))))]
 	(reset! out-chan (chan 1000000))
         
 	(let [job-id (:job-id (onyx.api/submit-job peer-config job))

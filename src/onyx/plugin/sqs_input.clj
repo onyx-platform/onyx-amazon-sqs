@@ -22,7 +22,7 @@
     (try 
       (let [pending (count @pending-messages)
             max-segments (min (- max-pending pending) batch-size)
-            received (sqs/receive-messages client queue-url max-segments attribute-names max-wait-time-secs)
+            received (sqs/receive-messages client queue-url max-segments attribute-names 0)
             deserialized (map #(update % :body deserializer-fn) received)
             batch (map #(t/input (java.util.UUID/randomUUID) %) deserialized)]
         (if (empty? batch)
@@ -34,7 +34,8 @@
         (warn e "sqs-input: read-batch receive messages error")
         {:onyx.core/batch []})))
 
-  (seal-resource [this event])
+  (seal-resource [this event]
+    (.shutdown client))
 
   p-ext/PipelineInput
   (ack-segment [_ _ segment-id]
@@ -74,7 +75,8 @@
         batch-timeout (arg-or-default :onyx/batch-timeout task-map)
         pending-messages (atom {})
         {:keys [sqs/idle-backoff-ms sqs/attribute-names sqs/deserializer-fn sqs/queue-url sqs/queue-name sqs/region]} task-map
-        client ^AmazonSQS (sqs/new-async-client region) 
+        client (sqs/new-async-buffered-client region {:max-batch-open-ms batch-timeout
+                                                      :long-poll-timeout 0}) 
         queue-url (or queue-url (sqs/get-queue-url client queue-name))
         idle-backoff-ms (:sqs/idle-backoff-ms task-map)
         deserializer-fn (kw->fn deserializer-fn)
