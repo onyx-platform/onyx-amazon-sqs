@@ -36,7 +36,6 @@
               :onyx/batch-size max-batch-size
               :onyx/batch-timeout batch-timeout-check
               :sqs/deserializer-fn os/NamespacedKeyword
-              :sqs/idle-backoff-ms os/PosInt
               s/Any s/Any}]))
 
 (def SQSOutputTaskMap
@@ -65,11 +64,9 @@
   ([task-name :- s/Keyword 
     region :- s/Str
     deserializer-fn :- os/NamespacedKeyword 
-    idle-backoff-ms :- s/Int 
     task-opts :- {s/Any s/Any}]
    (sqs-input task-name (merge {:sqs/region region
-                                :sqs/deserializer-fn deserializer-fn
-                                :sqs/idle-backoff-ms idle-backoff-ms}
+                                :sqs/deserializer-fn deserializer-fn}
                                task-opts))))
 
 (s/defn ^:always-validate sqs-output
