@@ -57,7 +57,8 @@
     (swap! pending-messages dissoc segment-id))
 
   (pending?
-    [_ _ segment-id])
+    [_ _ segment-id]
+    (@pending-messages segment-id))
 
   (drained? 
     [_ _]
