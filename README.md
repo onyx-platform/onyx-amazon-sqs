@@ -42,6 +42,8 @@ In lieu of `:sqs/queue-name`, the url of the queue can be suppied via `:sqs/queu
 
 SQS only supports batching up to 10 messages, which limits `:onyx/batch-size` to a maximum of 10.
 
+*NOTE*: `:onyx/pending-timeout` (in ms) should be shorter than your queue's VisibilityTimeout (in seconds), so that SQS does not trigger retries before Onyx's native retry mechanism.
+
 #### Attributes
 
 |key                           | type      | description

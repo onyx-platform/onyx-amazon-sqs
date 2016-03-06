@@ -12,11 +12,12 @@
                              :password :env
                              :sign-releases false}}
   :dependencies [[org.clojure/clojure "1.8.0"]
-                 ^{:voom {:repo "git@github.com:onyx-platform/onyx.git" :branch "master"}}
-                 [org.onyxplatform/onyx "0.8.12-20160220_014415-gced67dd"]
+                 ;^{:voom {:repo "git@github.com:onyx-platform/onyx.git" :branch "master"}}
+                 ; Temporarily depend on new onyx which has a breaking change for internal-ack-segment
+                 [org.onyxplatform/onyx "0.8.12-20160223.162630-6"]
                  [com.amazonaws/aws-java-sdk "1.10.49"]]
   :global-vars  {*warn-on-reflection* true}
-  :profiles {:dev {:dependencies [[amazonica "0.3.50"]]
+  :profiles {:dev {:dependencies []
                    :plugins [[lein-set-version "0.4.1"]
                              [lein-update-dependency "0.1.2"]
                              [lein-pprint "1.1.1"]]}})

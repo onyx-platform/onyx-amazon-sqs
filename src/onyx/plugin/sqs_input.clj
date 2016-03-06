@@ -12,7 +12,7 @@
            [com.amazonaws AmazonClientException]))
 
 (defrecord SqsInput 
-  [deserializer-fn max-pending batch-size batch-timeout pending-messages ^AmazonSQS client queue-url idle-backoff-ms attribute-names max-wait-time-secs]
+  [deserializer-fn max-pending batch-size batch-timeout pending-messages ^AmazonSQS client queue-url attribute-names]
   p-ext/Pipeline
   (write-batch 
     [this event]
@@ -22,19 +22,18 @@
     (try 
       (let [pending (count @pending-messages)
             max-segments (min (- max-pending pending) batch-size)
-            received (sqs/receive-messages client queue-url max-segments attribute-names max-wait-time-secs)
+            received (sqs/receive-messages client queue-url max-segments attribute-names 0)
             deserialized (map #(update % :body deserializer-fn) received)
             batch (map #(t/input (java.util.UUID/randomUUID) %) deserialized)]
-        (if (empty? batch)
-          (Thread/sleep idle-backoff-ms)
-          (doseq [m batch]
-            (swap! pending-messages assoc (:id m) (:message m))))
+        (doseq [m batch]
+          (swap! pending-messages assoc (:id m) (:message m)))
         {:onyx.core/batch batch})
       (catch AmazonClientException e
         (warn e "sqs-input: read-batch receive messages error")
         {:onyx.core/batch []})))
 
-  (seal-resource [this event])
+  (seal-resource [this event]
+    (.shutdown client))
 
   p-ext/PipelineInput
   (ack-segment [_ _ segment-id]
@@ -58,7 +57,8 @@
     (swap! pending-messages dissoc segment-id))
 
   (pending?
-    [_ _ segment-id])
+    [_ _ segment-id]
+    (@pending-messages segment-id))
 
   (drained? 
     [_ _]
@@ -73,12 +73,13 @@
         batch-size (:onyx/batch-size task-map)
         batch-timeout (arg-or-default :onyx/batch-timeout task-map)
         pending-messages (atom {})
-        {:keys [sqs/idle-backoff-ms sqs/attribute-names sqs/deserializer-fn sqs/queue-url sqs/queue-name sqs/region]} task-map
-        client ^AmazonSQS (sqs/new-async-client region) 
-        queue-url (or queue-url (sqs/get-queue-url client queue-name))
-        idle-backoff-ms (:sqs/idle-backoff-ms task-map)
+        {:keys [sqs/attribute-names sqs/deserializer-fn sqs/queue-url sqs/queue-name sqs/region]} task-map
         deserializer-fn (kw->fn deserializer-fn)
-        max-wait-time-secs (int (/ batch-timeout 1000))
+        long-poll-timeout (int (/ batch-timeout 1000))
+        client (sqs/new-async-buffered-client region {:max-batch-open-ms batch-timeout
+                                                      :param-long-poll (not (zero? batch-timeout))
+                                                      :long-poll-timeout long-poll-timeout}) 
+        queue-url (or queue-url (sqs/get-queue-url client queue-name))
         queue-attributes (sqs/queue-attributes client queue-url)
         visibility-timeout (Integer/parseInt (get queue-attributes "VisibilityTimeout"))]
     (info "Task" (:onyx/name task-map) "opened SQS input queue" queue-url)
@@ -87,5 +88,4 @@
                        Note that pending-timeout is in ms, whereas queue visibility timeout is in seconds."
                       {:onyx/pending-timeout pending-timeout
                        "VisibilityTimeout" visibility-timeout})))
-    (->SqsInput deserializer-fn max-pending batch-size batch-timeout pending-messages client 
-                queue-url idle-backoff-ms attribute-names max-wait-time-secs)))
+    (->SqsInput deserializer-fn max-pending batch-size batch-timeout pending-messages client queue-url attribute-names)))
