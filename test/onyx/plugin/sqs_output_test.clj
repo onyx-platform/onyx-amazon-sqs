@@ -29,11 +29,11 @@
 
 (deftest sqs-output-test
   (let [id (java.util.UUID/randomUUID)
-        env-config {:onyx/id id
+        env-config {:onyx/tenancy-id id
                     :zookeeper/address "127.0.0.1:2188"
                     :zookeeper/server? true
                     :zookeeper.server/port 2188}
-        peer-config {:onyx/id id
+        peer-config {:onyx/tenancy-id id
                      :zookeeper/address "127.0.0.1:2188"
                      :onyx.peer/job-scheduler :onyx.job-scheduler/greedy
                      :onyx.messaging.aeron/embedded-driver? true
