@@ -1,4 +1,4 @@
-(defproject org.onyxplatform/onyx-amazon-sqs "0.9.0.0-SNAPSHOT"
+(defproject org.onyxplatform/onyx-amazon-sqs "0.9.0.0-alpha6"
   :description "Onyx plugin for Amazon SQS"
   :url "https://github.com/onyx-platform/onyx-amazon-sqs"
   :license {:name "Eclipse Public License"
@@ -14,7 +14,7 @@
   :dependencies [[org.clojure/clojure "1.8.0"]
                  ;^{:voom {:repo "git@github.com:onyx-platform/onyx.git" :branch "master"}}
                  ; Temporarily depend on new onyx which has a breaking change for internal-ack-segment
-                 [org.onyxplatform/onyx "0.9.0-alpha5"]
+                 [org.onyxplatform/onyx "0.9.0-alpha6"]
                  [com.amazonaws/aws-java-sdk "1.10.49"]]
   :global-vars  {*warn-on-reflection* true}
   :profiles {:dev {:dependencies []
