@@ -12,8 +12,7 @@
                              :password :env
                              :sign-releases false}}
   :dependencies [[org.clojure/clojure "1.8.0"]
-                 ;^{:voom {:repo "git@github.com:onyx-platform/onyx.git" :branch "master"}}
-                 ; Temporarily depend on new onyx which has a breaking change for internal-ack-segment
+                 ^{:voom {:repo "git@github.com:onyx-platform/onyx.git" :branch "master"}}
                  [org.onyxplatform/onyx "0.9.0-alpha11"]
                  [com.amazonaws/aws-java-sdk "1.10.49"]]
   :global-vars  {*warn-on-reflection* true}
