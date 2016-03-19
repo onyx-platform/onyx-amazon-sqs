@@ -1,13 +1,16 @@
 (ns onyx.plugin.sqs-output-test
-  (:require [clojure.core.async :refer [chan >!! <!! close! sliding-buffer timeout alts!!]]
+  (:require [clojure.core.async
+             :refer
+             [<!! >!! alts!! chan close! sliding-buffer timeout]]
             [clojure.test :refer [deftest is testing]]
-            [onyx.plugin.core-async :refer [take-segments!]]
-	    [onyx.plugin.sqs :as s]
-            [onyx.plugin.sqs-output]
-	    [onyx.plugin.tasks.sqs :as task]
-            [taoensso.timbre :refer [debug info warn] :as timbre]
-            [onyx.test-helper :refer [load-config with-test-env add-test-env-peers! feedback-exception!]]
-            [onyx.api]))
+            [onyx api
+             [job :refer [add-task]]
+             [test-helper :refer [add-test-env-peers! feedback-exception! load-config with-test-env]]]
+            [onyx.plugin sqs-output
+             [core-async :refer [take-segments!]]
+             [sqs :as s]]
+            [onyx.tasks.sqs :as task]
+            [taoensso.timbre :as timbre :refer [debug info warn]]))
 
 (def in-chan (atom nil))
 
@@ -70,28 +73,28 @@
                                    :lifecycle/calls ::in-calls}
                                   {:lifecycle/task :in
                                    :lifecycle/calls :onyx.plugin.core-async/reader-calls}]}
-                    (task/add-task (task/sqs-output :out 
-                                                    region
-                                                    ::serializer-fn 
-                                                    {:sqs/queue-name queue-name})))
+                    (add-task (task/sqs-output :out
+                                               region
+                                               ::serializer-fn
+                                               {:sqs/queue-name queue-name})))
             n-messages 100
             _ (reset! in-chan (chan (inc (* 2 n-messages))))
             input-messages (map (fn [v] {:body {:n v}}) (range n-messages))
-            non-default-queue-messages (map (fn [v] {:queue-url non-default-queue :body {:n v}}) 
+            non-default-queue-messages (map (fn [v] {:queue-url non-default-queue :body {:n v}})
                                             (range n-messages))]
         (run! #(>!! @in-chan %) (concat input-messages non-default-queue-messages))
         (let [job-id (:job-id (onyx.api/submit-job peer-config job))
               results (pull-queue-results client queue-name 50)
-              non-default-results (pull-queue-results client non-default-queue-name 50)] 
+              non-default-results (pull-queue-results client non-default-queue-name 50)]
 
-	  (is (= (count results) 
-		 (count (set results))))
-	  (is (= (map :body input-messages) 
+          (is (= (count results)
+                 (count (set results))))
+          (is (= (map :body input-messages)
                  (sort-by :n (mapv read-string results))))
-          
-          (is (= (count non-default-results) 
-		 (count (set non-default-results))))
-	  (is (= (map :body non-default-queue-messages) 
+
+          (is (= (count non-default-results)
+                 (count (set non-default-results))))
+          (is (= (map :body non-default-queue-messages)
                  (sort-by :n (mapv read-string non-default-results)))))))
     (s/delete-queue client queue)
     (s/delete-queue client non-default-queue)))

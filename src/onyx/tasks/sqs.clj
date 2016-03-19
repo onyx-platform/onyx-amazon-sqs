@@ -1,4 +1,4 @@
-(ns onyx.plugin.tasks.sqs
+(ns onyx.tasks.sqs
   (:require [schema.core :as s]
             [onyx.schema :as os]
             [taoensso.timbre :refer [info debug fatal]]))
@@ -9,13 +9,13 @@
 
 (def max-batch-size 10)
 
-(def max-batch-size (s/pred (fn [batch-size] 
+(def max-batch-size (s/pred (fn [batch-size]
                               (and (> batch-size 0)
                                    (<= batch-size 10)))
                             'max-sqs-batch-size-10))
 
 (def batch-timeout-check
-  (s/pred (fn [batch-timeout] 
+  (s/pred (fn [batch-timeout]
             (zero? (rem batch-timeout 1000)))
           'min-batch-timeout-divisible-1000))
 
@@ -39,7 +39,7 @@
               s/Any s/Any}]))
 
 (def SQSOutputTaskMap
-  (s/->Both [os/TaskMap 
+  (s/->Both [os/TaskMap
              {(s/optional-key :sqs/queue-name) s/Str
               (s/optional-key :sqs/queue-url) s/Str
               :sqs/region s/Str
@@ -61,9 +61,9 @@
            :lifecycles []}
     :schema {:task-map SQSInputTaskMap
              :lifecycles [os/Lifecycle]}})
-  ([task-name :- s/Keyword 
+  ([task-name :- s/Keyword
     region :- s/Str
-    deserializer-fn :- os/NamespacedKeyword 
+    deserializer-fn :- os/NamespacedKeyword
     task-opts :- {s/Any s/Any}]
    (sqs-input task-name (merge {:sqs/region region
                                 :sqs/deserializer-fn deserializer-fn}
@@ -81,23 +81,10 @@
            :lifecycles []}
     :schema {:task-map SQSOutputTaskMap
              :lifecycles [os/Lifecycle]}})
-  ([task-name :- s/Keyword 
+  ([task-name :- s/Keyword
     region :- s/Str
-    serializer-fn :- os/NamespacedKeyword 
+    serializer-fn :- os/NamespacedKeyword
     task-opts :- {s/Any s/Any}]
    (sqs-output task-name (merge {:sqs/region region
                                  :sqs/serializer-fn serializer-fn}
                                 task-opts))))
-
-;; TODO, remove once this is in core
-(s/defn add-task :- os/Job
-  "Adds a task's task-definition to a job"
-  [{:keys [lifecycles triggers windows flow-conditions] :as job}
-   {:keys [task schema] :as task-definition}]
-  (when schema (s/validate schema task))
-  (cond-> job
-    true (update :catalog conj (:task-map task))
-    lifecycles (update :lifecycles into (:lifecycles task))
-    triggers (update :triggers into (:triggers task))
-    windows (update :windows into (:windows task))
-    flow-conditions (update :flow-conditions into (:flow-conditions task))))
