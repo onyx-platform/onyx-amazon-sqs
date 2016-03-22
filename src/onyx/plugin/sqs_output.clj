@@ -1,18 +1,20 @@
 (ns onyx.plugin.sqs-output
-  (:require [onyx.peer.function :as function]
-            [onyx.peer.pipeline-extensions :as p-ext]
-            [onyx.plugin.sqs :as sqs]
-            [onyx.extensions :as extensions]
-            [onyx.static.default-vals :refer [defaults arg-or-default]]
-            [onyx.plugin.tasks.sqs :refer [SQSOutputTaskMap]]
+  (:require [onyx
+             [extensions :as extensions]
+             [types :refer [dec-count! inc-count!]]]
             [onyx.log.commands.peer-replica-view :refer [peer-site]]
-            [onyx.peer.operation :refer [kw->fn]]
-            [onyx.types :refer [dec-count! inc-count!]]
+            [onyx.peer
+             [function :as function]
+             [operation :refer [kw->fn]]
+             [pipeline-extensions :as p-ext]]
+            [onyx.plugin.sqs :as sqs]
+            [onyx.static.default-vals :refer [arg-or-default defaults]]
+            [onyx.tasks.sqs :refer [SQSOutputTaskMap]]
             [schema.core :as s]
-            [taoensso.timbre :refer [debug info warn error] :as timbre])
-  (:import [com.amazonaws.services.sqs AmazonSQS AmazonSQSClient AmazonSQSAsync AmazonSQSAsyncClient]
-           [com.amazonaws AmazonClientException]
-	   [com.amazonaws.handlers AsyncHandler]))
+            [taoensso.timbre :as timbre :refer [debug error info warn]])
+  (:import com.amazonaws.AmazonClientException
+           com.amazonaws.handlers.AsyncHandler
+           [com.amazonaws.services.sqs AmazonSQS AmazonSQSAsync AmazonSQSAsyncClient AmazonSQSClient]))
 
 (defn default-queue-url [segment queue-url]
   (update segment :queue-url #(or % 

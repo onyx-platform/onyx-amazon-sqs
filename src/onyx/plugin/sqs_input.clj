@@ -1,15 +1,16 @@
 (ns onyx.plugin.sqs-input
-  (:require [onyx.peer.function :as function]
-            [onyx.peer.pipeline-extensions :as p-ext]
+  (:require [onyx.peer
+             [function :as function]
+             [operation :refer [kw->fn]]
+             [pipeline-extensions :as p-ext]]
             [onyx.plugin.sqs :as sqs]
-            [onyx.static.default-vals :refer [defaults arg-or-default]]
+            [onyx.static.default-vals :refer [arg-or-default defaults]]
+            [onyx.tasks.sqs :refer [SQSInputTaskMap]]
             [onyx.types :as t]
-            [onyx.peer.operation :refer [kw->fn]]
-            [onyx.plugin.tasks.sqs :refer [SQSInputTaskMap]]
             [schema.core :as s]
-            [taoensso.timbre :refer [debug info warn] :as timbre])
-  (:import [com.amazonaws.services.sqs AmazonSQS AmazonSQSClient AmazonSQSAsync AmazonSQSAsyncClient]
-           [com.amazonaws AmazonClientException]))
+            [taoensso.timbre :as timbre :refer [debug info warn]])
+  (:import com.amazonaws.AmazonClientException
+           [com.amazonaws.services.sqs AmazonSQS AmazonSQSAsync AmazonSQSAsyncClient AmazonSQSClient]))
 
 (defrecord SqsInput 
   [deserializer-fn max-pending batch-size batch-timeout pending-messages ^AmazonSQS client queue-url attribute-names]

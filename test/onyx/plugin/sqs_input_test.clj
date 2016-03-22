@@ -1,12 +1,15 @@
 (ns onyx.plugin.sqs-input-test
-  (:require [clojure.core.async :refer [chan >!! <!! close! sliding-buffer timeout alts!!]]
+  (:require [clojure.core.async
+             :refer
+             [<!! >!! alts!! chan close! sliding-buffer timeout]]
             [clojure.test :refer [deftest is testing]]
-            [onyx.plugin.core-async :refer [take-segments!]]
-	    [onyx.plugin.sqs :as s]
-	    [onyx.plugin.tasks.sqs :as task]
-            [onyx.plugin.sqs-input]
-            [onyx.test-helper :refer [load-config with-test-env add-test-env-peers! feedback-exception!]]
-            [onyx.api]))
+            [onyx api
+             [job :refer [add-task]]
+             [test-helper :refer [add-test-env-peers! feedback-exception! load-config with-test-env]]]
+            [onyx.plugin sqs-input
+             [core-async :refer [take-segments!]]
+             [sqs :as s]]
+            [onyx.tasks.sqs :as task]))
 
 (def out-chan (atom nil))
 
@@ -38,46 +41,46 @@
                                                  "MessageRetentionPeriod" "320"})]
     (with-test-env [test-env [3 env-config peer-config]]
       (let [batch-size 10
-	    job (-> {:workflow [[:in :identity] [:identity :out]]
-		     :task-scheduler :onyx.task-scheduler/balanced
-		     :catalog [;; Add :in task later 
-			       {:onyx/name :identity
-				:onyx/fn :clojure.core/identity
-				:onyx/type :function
+            job (-> {:workflow [[:in :identity] [:identity :out]]
+                     :task-scheduler :onyx.task-scheduler/balanced
+                     :catalog [;; Add :in task later
+                               {:onyx/name :identity
+                                :onyx/fn :clojure.core/identity
+                                :onyx/type :function
                                 :onyx/max-peers 1
-				:onyx/batch-size batch-size}
+                                :onyx/batch-size batch-size}
 
-			       {:onyx/name :out
-				:onyx/plugin :onyx.plugin.core-async/output
-				:onyx/type :output
-				:onyx/medium :core.async
-				:onyx/batch-size batch-size
-				:onyx/max-peers 1
-				:onyx/doc "Writes segments to a core.async channel"}]
-		     :lifecycles [{:lifecycle/task :out
-				   :lifecycle/calls ::out-calls}
-				  {:lifecycle/task :out
-				   :lifecycle/calls :onyx.plugin.core-async/writer-calls}]}
-                    (task/add-task (task/sqs-input :in 
-                                                   region
-                                                   ::clojure.edn/read-string 
-                                                   {:sqs/queue-name queue-name
-                                                    :onyx/batch-timeout 1000
-                                                    :onyx/pending-timeout 10000})))
-	    n-messages 500
-	    input-messages (map (fn [v] {:n v}) (range n-messages))
+                               {:onyx/name :out
+                                :onyx/plugin :onyx.plugin.core-async/output
+                                :onyx/type :output
+                                :onyx/medium :core.async
+                                :onyx/batch-size batch-size
+                                :onyx/max-peers 1
+                                :onyx/doc "Writes segments to a core.async channel"}]
+                     :lifecycles [{:lifecycle/task :out
+                                   :lifecycle/calls ::out-calls}
+                                  {:lifecycle/task :out
+                                   :lifecycle/calls :onyx.plugin.core-async/writer-calls}]}
+                    (add-task (task/sqs-input :in
+                                              region
+                                              ::clojure.edn/read-string
+                                              {:sqs/queue-name queue-name
+                                               :onyx/batch-timeout 1000
+                                               :onyx/pending-timeout 10000})))
+            n-messages 500
+            input-messages (map (fn [v] {:n v}) (range n-messages))
             send-result (time (doall (pmap #(s/send-message-batch client queue %)
-                                     (partition-all 10 (map pr-str input-messages)))))]
-	(reset! out-chan (chan 1000000))
-        
-	(let [job-id (:job-id (onyx.api/submit-job peer-config job))
-	      timeout-ch (timeout 60000)
-	      results (vec (keep first (repeatedly n-messages #(alts!! [timeout-ch @out-chan] :priority true))))]
+                                           (partition-all 10 (map pr-str input-messages)))))]
+        (reset! out-chan (chan 1000000))
 
-	  (is (= (count results) 
-		 (count (set (map :body results)))))
+        (let [job-id (:job-id (onyx.api/submit-job peer-config job))
+              timeout-ch (timeout 60000)
+              results (vec (keep first (repeatedly n-messages #(alts!! [timeout-ch @out-chan] :priority true))))]
 
-          (is (= input-messages 
+          (is (= (count results)
+                 (count (set (map :body results)))))
+
+          (is (= input-messages
                  (sort-by :n (map :body results)))))))
 
     (s/delete-queue client queue)))
