@@ -31,8 +31,6 @@
           (:tree results)
           (:acks results)))
 
-(def serialization-fn str)
-
 (defn build-ack-callback [peer-replica-view messenger acks]
   (reify AsyncHandler
     (onSuccess [this request result]
@@ -59,7 +57,7 @@
       (run! (fn [[batch-queue-url s]]
               (try 
                 (let [acks (map second s)
-                      segments (map (comp serialization-fn :body first) s)
+                      segments (map (comp serializer-fn :body first) s)
                       callback (build-ack-callback peer-replica-view messenger acks)]
                   ;; Increment ack reference count because we are writing async
                   (sqs/send-message-batch-async client batch-queue-url segments callback))
