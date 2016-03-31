@@ -26,7 +26,7 @@
                                 messages))
                       (range tries))))
 
-(def serializer-fn read-string)
+(def serializer-fn str)
 
 (def region "us-east-1")
 
