@@ -4,7 +4,8 @@
             [onyx api
              [job :refer [add-task]]
              [test-helper :refer [with-test-env]]]
-            [onyx.plugin.sqs :as s]
+            [onyx.plugin sqs-input
+             [sqs :as s]]
             [onyx.tasks.sqs :as task]))
 
 (def out-chan (atom nil))
