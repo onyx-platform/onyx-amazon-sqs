@@ -1,13 +1,10 @@
 (ns onyx.plugin.sqs-input-test
-  (:require [clojure.core.async
-             :refer
-             [<!! >!! alts!! chan close! sliding-buffer timeout]]
-            [clojure.test :refer [deftest is testing]]
+  (:require [clojure.core.async :refer [alts!! chan timeout]]
+            [clojure.test :refer [deftest is]]
             [onyx api
              [job :refer [add-task]]
-             [test-helper :refer [add-test-env-peers! feedback-exception! load-config with-test-env]]]
+             [test-helper :refer [with-test-env]]]
             [onyx.plugin sqs-input
-             [core-async :refer [take-segments!]]
              [sqs :as s]]
             [onyx.tasks.sqs :as task]))
 
@@ -82,5 +79,4 @@
 
           (is (= input-messages
                  (sort-by :n (map :body results)))))))
-
     (s/delete-queue client queue)))
