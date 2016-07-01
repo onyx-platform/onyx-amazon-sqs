@@ -1,41 +1,41 @@
 (ns onyx.plugin.sqs-output
-  (:require [onyx.peer.function :as function]
-            [onyx.peer.pipeline-extensions :as p-ext]
-            [onyx.plugin.sqs :as sqs]
-            [onyx.extensions :as extensions]
-            [onyx.static.default-vals :refer [defaults arg-or-default]]
-            [onyx.plugin.tasks.sqs :refer [SQSOutputTaskMap]]
+  (:require [onyx
+             [extensions :as extensions]
+             [schema :as os]
+             [types :refer [dec-count! inc-count!]]]
             [onyx.log.commands.peer-replica-view :refer [peer-site]]
-            [onyx.peer.operation :refer [kw->fn]]
-            [onyx.types :refer [dec-count! inc-count!]]
+            [onyx.peer
+             [function :as function]
+             [operation :refer [kw->fn]]
+             [pipeline-extensions :as p-ext]]
+            [onyx.plugin.sqs :as sqs]
+            [onyx.tasks.sqs :refer [SQSOutputTaskMap]]
             [schema.core :as s]
-            [taoensso.timbre :refer [debug info warn error] :as timbre])
-  (:import [com.amazonaws.services.sqs AmazonSQS AmazonSQSClient AmazonSQSAsync AmazonSQSAsyncClient]
-           [com.amazonaws AmazonClientException]
-	   [com.amazonaws.handlers AsyncHandler]))
+            [taoensso.timbre :as timbre :refer [error warn]])
+  (:import com.amazonaws.AmazonClientException
+           com.amazonaws.handlers.AsyncHandler
+           com.amazonaws.services.sqs.AmazonSQS))
 
 (defn default-queue-url [segment queue-url]
-  (update segment :queue-url #(or % 
-                                  queue-url 
-                                  (throw (ex-info "queue-url must be defined in segment or task map." 
+  (update segment :queue-url #(or %
+                                  queue-url
+                                  (throw (ex-info "queue-url must be defined in segment or task map."
                                                   {:task-map-queue-url queue-url :segment segment})))))
 
 (defn results->segments-acks [results queue-url]
   (mapcat (fn [{:keys [leaves]} ack]
-            (map (fn [leaf] 
-                   (list (default-queue-url (:message leaf) queue-url) 
+            (map (fn [leaf]
+                   (list (default-queue-url (:message leaf) queue-url)
                          ack))
                  leaves))
           (:tree results)
           (:acks results)))
 
-(def serialization-fn str)
-
 (defn build-ack-callback [peer-replica-view messenger acks]
   (reify AsyncHandler
     (onSuccess [this request result]
-      (try 
-        (doseq [ack acks] 
+      (try
+        (doseq [ack acks]
           (when (dec-count! ack)
             (when-let [site (peer-site peer-replica-view (:completion-id ack))]
               (extensions/internal-ack-segment messenger site ack))))
@@ -46,18 +46,18 @@
 
 (defrecord SqsOutput [serializer-fn ^AmazonSQS client default-queue-url]
   p-ext/Pipeline
-  (read-batch 
+  (read-batch
     [_ event]
     (function/read-batch event))
 
-  (write-batch 
+  (write-batch
     [_ {:keys [onyx.core/results onyx.core/peer-replica-view onyx.core/messenger] :as event}]
-    (let [segments-acks (results->segments-acks results default-queue-url)] 
+    (let [segments-acks (results->segments-acks results default-queue-url)]
       (run! inc-count! (map second segments-acks))
       (run! (fn [[batch-queue-url s]]
-              (try 
+              (try
                 (let [acks (map second s)
-                      segments (map (comp serialization-fn :body first) s)
+                      segments (map (comp serializer-fn :body first) s)
                       callback (build-ack-callback peer-replica-view messenger acks)]
                   ;; Increment ack reference count because we are writing async
                   (sqs/send-message-batch-async client batch-queue-url segments callback))
@@ -66,16 +66,16 @@
             (group-by (comp :queue-url first) segments-acks)))
     {})
 
-  (seal-resource 
+  (seal-resource
     [_ event]))
 
 (defn output [event]
   (let [task-map (:onyx.core/task-map event)
-        _ (s/validate SQSOutputTaskMap task-map)
+        _ (s/validate (os/UniqueTaskMap SQSOutputTaskMap) task-map)
         {:keys [sqs/queue-url sqs/queue-name sqs/serializer-fn sqs/region]} task-map
         client ^AmazonSQS (sqs/new-async-client region)
         serializer-fn (kw->fn serializer-fn)
-        default-queue-url (or queue-url 
-                              (if queue-name 
-                                (sqs/get-queue-url client queue-name)))] 
+        default-queue-url (or queue-url
+                              (if queue-name
+                                (sqs/get-queue-url client queue-name)))]
     (->SqsOutput serializer-fn client default-queue-url)))

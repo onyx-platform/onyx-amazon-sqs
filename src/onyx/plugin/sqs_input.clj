@@ -1,25 +1,28 @@
 (ns onyx.plugin.sqs-input
-  (:require [onyx.peer.function :as function]
-            [onyx.peer.pipeline-extensions :as p-ext]
+  (:require [onyx
+             [schema :as os]
+             [types :as t]]
+            [onyx.peer
+             [function :as function]
+             [operation :refer [kw->fn]]
+             [pipeline-extensions :as p-ext]]
             [onyx.plugin.sqs :as sqs]
-            [onyx.static.default-vals :refer [defaults arg-or-default]]
-            [onyx.types :as t]
-            [onyx.peer.operation :refer [kw->fn]]
-            [onyx.plugin.tasks.sqs :refer [SQSInputTaskMap]]
+            [onyx.static.default-vals :refer [arg-or-default]]
+            [onyx.tasks.sqs :refer [SQSInputTaskMap]]
             [schema.core :as s]
-            [taoensso.timbre :refer [debug info warn] :as timbre])
-  (:import [com.amazonaws.services.sqs AmazonSQS AmazonSQSClient AmazonSQSAsync AmazonSQSAsyncClient]
-           [com.amazonaws AmazonClientException]))
+            [taoensso.timbre :as timbre :refer [info warn]])
+  (:import com.amazonaws.AmazonClientException
+           com.amazonaws.services.sqs.AmazonSQS))
 
-(defrecord SqsInput 
+(defrecord SqsInput
   [deserializer-fn max-pending batch-size batch-timeout pending-messages ^AmazonSQS client queue-url attribute-names]
   p-ext/Pipeline
-  (write-batch 
+  (write-batch
     [this event]
     (function/write-batch event))
 
   (read-batch [_ event]
-    (try 
+    (try
       (let [pending (count @pending-messages)
             max-segments (min (- max-pending pending) batch-size)
             received (sqs/receive-messages client queue-url max-segments attribute-names 0)
@@ -37,7 +40,7 @@
 
   p-ext/PipelineInput
   (ack-segment [_ _ segment-id]
-    (try 
+    (try
       ;; Delete the message from the queue as it is fully acked
       (->> (@pending-messages segment-id)
            :receipt-handle
@@ -46,10 +49,10 @@
         (warn e "sqs-input: ack-segment error on delete message")))
     (swap! pending-messages dissoc segment-id))
 
-  (retry-segment 
+  (retry-segment
     [_ event segment-id]
-    (try 
-      (let [message-id (:message-id (@pending-messages segment-id))] 
+    (try
+      (let [message-id (:message-id (@pending-messages segment-id))]
         ;; Change visibility on message to 0 so that SQS will retry the message through read-batch
         (sqs/change-visibility-request-async client queue-url message-id 0))
         (catch AmazonClientException e
@@ -60,14 +63,14 @@
     [_ _ segment-id]
     (@pending-messages segment-id))
 
-  (drained? 
+  (drained?
     [_ _]
     ;; Cannot safely drain an SQS queue via :done, as there may be pending retries
     false))
 
 (defn input [event]
   (let [task-map (:onyx.core/task-map event)
-        _ (s/validate SQSInputTaskMap task-map)
+        _ (s/validate (os/UniqueTaskMap SQSInputTaskMap) task-map)
         max-pending (arg-or-default :onyx/max-pending task-map)
         pending-timeout (arg-or-default :onyx/pending-timeout task-map)
         batch-size (:onyx/batch-size task-map)
@@ -78,7 +81,7 @@
         long-poll-timeout (int (/ batch-timeout 1000))
         client (sqs/new-async-buffered-client region {:max-batch-open-ms batch-timeout
                                                       :param-long-poll (not (zero? batch-timeout))
-                                                      :long-poll-timeout long-poll-timeout}) 
+                                                      :long-poll-timeout long-poll-timeout})
         queue-url (or queue-url (sqs/get-queue-url client queue-name))
         queue-attributes (sqs/queue-attributes client queue-url)
         visibility-timeout (Integer/parseInt (get queue-attributes "VisibilityTimeout"))]

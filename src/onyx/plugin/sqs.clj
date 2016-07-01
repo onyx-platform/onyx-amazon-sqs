@@ -1,14 +1,14 @@
 (ns onyx.plugin.sqs
-  (:import [com.amazonaws AmazonClientException]
-           [com.amazonaws.auth DefaultAWSCredentialsProviderChain]
-           [com.amazonaws.services.sqs AmazonSQS AmazonSQSClient AmazonSQSAsync AmazonSQSAsyncClient]
+  (:import com.amazonaws.auth.DefaultAWSCredentialsProviderChain
+           com.amazonaws.handlers.AsyncHandler
+           com.amazonaws.regions.RegionUtils
+           [com.amazonaws.services.sqs AmazonSQS AmazonSQSAsync AmazonSQSAsyncClient AmazonSQSClient]
            [com.amazonaws.services.sqs.buffered AmazonSQSBufferedAsyncClient QueueBufferConfig]
-	   [com.amazonaws.handlers AsyncHandler]
-           [com.amazonaws.regions RegionUtils]
-           [com.amazonaws.services.sqs.model 
-            SendMessageBatchRequest SendMessageBatchRequestEntry GetQueueAttributesRequest
-            SendMessageRequest ChangeMessageVisibilityRequest DeleteMessageRequest 
-            CreateQueueRequest CreateQueueResult GetQueueUrlResult DeleteQueueRequest Message ReceiveMessageRequest ReceiveMessageResult]))
+           [com.amazonaws.services.sqs.model ChangeMessageVisibilityRequest
+            CreateQueueRequest CreateQueueResult DeleteQueueRequest
+            GetQueueAttributesRequest GetQueueUrlResult Message
+            ReceiveMessageRequest SendMessageBatchRequest
+            SendMessageBatchRequestEntry SendMessageRequest]))
 
 (defn new-async-client ^AmazonSQSAsync [^String region]
   (let [credentials (DefaultAWSCredentialsProviderChain.)]
@@ -20,19 +20,20 @@
     (doto (AmazonSQSClient. credentials)
       (.setRegion (RegionUtils/getRegion region)))))
 
-(defn new-async-buffered-client ^AmazonSQSAsync 
-  ([^String region {:keys [max-batch-open-ms max-inflight-outbound-batches max-inflight-receive-batches max-done-receive-batches 
+(defn new-async-buffered-client ^AmazonSQSAsync
+  ([^String region {:keys [max-batch-open-ms max-inflight-outbound-batches max-inflight-receive-batches max-done-receive-batches
                            param-long-poll max-batch-size-bytes visibility-timeout long-poll-timeout max-batch]}]
-   (AmazonSQSBufferedAsyncClient. (new-async-client region) 
-                                  (QueueBufferConfig. (or max-batch-open-ms QueueBufferConfig/MAX_BATCH_OPEN_MS_DEFAULT)
-                                                      (or max-inflight-outbound-batches QueueBufferConfig/MAX_INFLIGHT_OUTBOUND_BATCHES_DEFAULT)
-                                                      (or max-inflight-receive-batches QueueBufferConfig/MAX_INFLIGHT_RECEIVE_BATCHES_DEFAULT)
-                                                      (or max-done-receive-batches QueueBufferConfig/MAX_DONE_RECEIVE_BATCHES_DEFAULT)
-                                                      (or param-long-poll false)
-                                                      (or max-batch-size-bytes QueueBufferConfig/SERVICE_MAX_BATCH_SIZE_BYTES)
-                                                      (or visibility-timeout QueueBufferConfig/VISIBILITY_TIMEOUT_SECONDS_DEFAULT)
-                                                      (or long-poll-timeout QueueBufferConfig/LONGPOLL_WAIT_TIMEOUT_SECONDS_DEFAULT)
-                                                      (or max-batch QueueBufferConfig/MAX_BATCH_SIZE_DEFAULT))))
+   (AmazonSQSBufferedAsyncClient.
+    (new-async-client region)
+    (QueueBufferConfig. (or max-batch-open-ms QueueBufferConfig/MAX_BATCH_OPEN_MS_DEFAULT)
+                        (or max-inflight-outbound-batches QueueBufferConfig/MAX_INFLIGHT_OUTBOUND_BATCHES_DEFAULT)
+                        (or max-inflight-receive-batches QueueBufferConfig/MAX_INFLIGHT_RECEIVE_BATCHES_DEFAULT)
+                        (or max-done-receive-batches QueueBufferConfig/MAX_DONE_RECEIVE_BATCHES_DEFAULT)
+                        (or param-long-poll false)
+                        (or max-batch-size-bytes QueueBufferConfig/SERVICE_MAX_BATCH_SIZE_BYTES)
+                        (or visibility-timeout QueueBufferConfig/VISIBILITY_TIMEOUT_SECONDS_DEFAULT)
+                        (or long-poll-timeout QueueBufferConfig/LONGPOLL_WAIT_TIMEOUT_SECONDS_DEFAULT)
+                        (or max-batch QueueBufferConfig/MAX_BATCH_SIZE_DEFAULT))))
   ([^String region]
    (AmazonSQSBufferedAsyncClient. (new-async-client region))))
 
@@ -43,10 +44,10 @@
 ;; Policy - The queue's policy. A valid AWS policy. For more information about policy structure, see Overview of AWS IAM Policies in the Amazon IAM User Guide.
 ;; ReceiveMessageWaitTimeSeconds - The time for which a ReceiveMessage call will wait for a message to arrive. An integer from 0 to 20 (seconds). The default for this attribute is 0.
 ;; VisibilityTimeout - The visibility timeout for the queue. An integer from 0 to 43200 (12 hours). The default for this attribute is 30. For more information about visibility timeout, see Visibility Timeout in the Amazon SQS Developer Guide.
-;; DelaySeconds - The time in seconds that the delivery of all messages in the queue will be delayed. An integer from 0 to 900 
+;; DelaySeconds - The time in seconds that the delivery of all messages in the queue will be delayed. An integer from 0 to 900
 (defn create-queue [^AmazonSQS client queue-name attributes]
-  (.getQueueUrl ^CreateQueueResult 
-                (.createQueue client 
+  (.getQueueUrl ^CreateQueueResult
+                (.createQueue client
                               (-> (CreateQueueRequest. queue-name)
                                   (.withAttributes attributes)))))
 
@@ -57,24 +58,24 @@
   (.getQueueUrl ^GetQueueUrlResult (.getQueueUrl client queue-name)))
 
 (defn queue-attributes [^AmazonSQS client ^String queue-url]
-  (into {} (.getAttributes 
-             (.getQueueAttributes client 
-                                  (.withAttributeNames (GetQueueAttributesRequest. queue-url) 
-                                                       ["All"])))))
+  (into {} (.getAttributes
+            (.getQueueAttributes client
+                                 (.withAttributeNames (GetQueueAttributesRequest. queue-url)
+                                                      ["All"])))))
 
-(defn receive-request ^ReceiveMessageRequest 
-  [^AmazonSQS client 
-   ^String queue-url 
-   max-num-messages 
-   ^java.util.Collection attribute-names 
+(defn receive-request ^ReceiveMessageRequest
+  [^AmazonSQS client
+   ^String queue-url
+   max-num-messages
+   ^java.util.Collection attribute-names
    wait-time-secs]
-  (let [req ^ReceiveMessageRequest (ReceiveMessageRequest.)] 
-    (.withQueueUrl 
-      (.withAttributeNames 
-        (.withMaxNumberOfMessages req ^Integer 
-                                  (int max-num-messages)) 
-        attribute-names)
-      queue-url)))
+  (let [req ^ReceiveMessageRequest (ReceiveMessageRequest.)]
+    (.withQueueUrl
+     (.withAttributeNames
+      (.withMaxNumberOfMessages req ^Integer
+                                (int max-num-messages))
+      attribute-names)
+     queue-url)))
 
 (defn message->clj [^Message msg]
   {:attributes (into {} (.getAttributes msg))
@@ -97,9 +98,9 @@
 (defn delete-message-async [^AmazonSQSAsync client ^String queue-url ^String receipt-handle]
   (.deleteMessageAsync client queue-url receipt-handle))
 
-(defn send-message-batch-request 
+(defn send-message-batch-request
   ^SendMessageBatchRequest [queue-url messages]
-  (SendMessageBatchRequest. queue-url 
+  (SendMessageBatchRequest. queue-url
                             (map (fn [msg]
                                    (SendMessageBatchRequestEntry. (str (java.util.UUID/randomUUID)) msg))
                                  messages)))
@@ -107,7 +108,7 @@
 (defn send-message-batch [^AmazonSQS client ^String queue-url messages]
   (.sendMessageBatch client (send-message-batch-request queue-url messages)))
 
-(defn send-message-batch-async 
+(defn send-message-batch-async
   [^AmazonSQSAsync client ^String queue-url messages ^AsyncHandler handler]
   (.sendMessageBatchAsync client (send-message-batch-request queue-url messages) handler))
 
@@ -118,5 +119,5 @@
   (.sendMessageAsync client (SendMessageRequest. queue-url message)))
 
 (defn change-visibility-request-async [^AmazonSQSAsync client ^String queue-url message-id visibility-time]
-  (let [visibility-request ^ChangeMessageVisibilityRequest (ChangeMessageVisibilityRequest. queue-url message-id visibility-time)] 
+  (let [visibility-request ^ChangeMessageVisibilityRequest (ChangeMessageVisibilityRequest. queue-url message-id visibility-time)]
     (.changeMessageVisibilityAsync client visibility-request)))
