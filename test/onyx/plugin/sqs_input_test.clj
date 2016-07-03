@@ -16,7 +16,7 @@
 (def out-calls
   {:lifecycle/before-task-start inject-out-ch})
 
-(def region "ap-southeast-1")
+(def region "us-east-1")
 
 (deftest sqs-input-test
   (let [id (java.util.UUID/randomUUID)
@@ -68,6 +68,11 @@
             input-messages (map (fn [v] {:n v}) (range n-messages))
             send-result (time (doall (pmap #(s/send-message-batch client queue %)
                                            (partition-all 10 (map pr-str input-messages)))))]
+        (assert (empty? 
+                  (remove true? 
+                          (map #(empty? (.getFailed %)) send-result))) 
+                "Failed to send all messages to SQS. This invalidates the test results, but does not mean that the plugin is broken.")
+
         (reset! out-chan (chan 1000000))
 
         (let [job-id (:job-id (onyx.api/submit-job peer-config job))
