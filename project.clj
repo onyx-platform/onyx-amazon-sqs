@@ -1,4 +1,4 @@
-(defproject org.onyxplatform/onyx-amazon-sqs "0.9.8.0-SNAPSHOT"
+(defproject org.onyxplatform/onyx-amazon-sqs "0.9.8.1-SNAPSHOT"
   :description "Onyx plugin for Amazon SQS"
   :url "https://github.com/onyx-platform/onyx-amazon-sqs"
   :license {:name "Eclipse Public License"
