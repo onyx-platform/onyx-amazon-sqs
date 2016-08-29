@@ -6,9 +6,9 @@
             [onyx.log.commands.peer-replica-view :refer [peer-site]]
             [onyx.peer
              [function :as function]
-             [operation :refer [kw->fn]]
              [pipeline-extensions :as p-ext]]
             [onyx.plugin.sqs :as sqs]
+            [onyx.static.util :refer [kw->fn]]
             [onyx.tasks.sqs :refer [SQSOutputTaskMap]]
             [schema.core :as s]
             [taoensso.timbre :as timbre :refer [error warn]])

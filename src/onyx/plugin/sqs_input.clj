@@ -4,10 +4,10 @@
              [types :as t]]
             [onyx.peer
              [function :as function]
-             [operation :refer [kw->fn]]
              [pipeline-extensions :as p-ext]]
             [onyx.plugin.sqs :as sqs]
             [onyx.static.default-vals :refer [arg-or-default]]
+            [onyx.static.util :refer [kw->fn]]
             [onyx.tasks.sqs :refer [SQSInputTaskMap]]
             [schema.core :as s]
             [taoensso.timbre :as timbre :refer [info warn]])
