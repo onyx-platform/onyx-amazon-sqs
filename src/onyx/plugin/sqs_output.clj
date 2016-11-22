@@ -44,6 +44,12 @@
     (onError [this e]
       (warn e "sqs-output: batch send failed"))))
 
+(defn write-handle-exception [event lifecycle lf-kw exception]
+  :restart)
+
+(def output-calls
+  {:lifecycle/handle-exception write-handle-exception})
+
 (defrecord SqsOutput [serializer-fn ^AmazonSQS client default-queue-url]
   p-ext/Pipeline
   (read-batch
