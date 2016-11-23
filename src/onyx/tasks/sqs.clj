@@ -47,7 +47,9 @@
                              :onyx/batch-timeout 1000
                              :sqs/attribute-names []
                              :onyx/doc "Reads segments from an SQS queue"}
-                            task-opts)}
+                            task-opts)
+           :lifecycles [{:lifecycle/task task-name
+                         :lifecycle/calls :onyx.plugin.sqs-input/input-calls}]}
     :schema {:task-map SQSInputTaskMap}})
   ([task-name :- s/Keyword
     region :- s/Str
@@ -65,7 +67,9 @@
                              :onyx/medium :sqs
                              :onyx/batch-size 10
                              :onyx/doc "Writes segments to SQS queues"}
-                            task-opts)}
+                            task-opts)
+           :lifecycles [{:lifecycle/task task-name
+                         :lifecycle/calls :onyx.plugin.sqs-output/output-calls}]}
     :schema {:task-map SQSOutputTaskMap}})
   ([task-name :- s/Keyword
     region :- s/Str
