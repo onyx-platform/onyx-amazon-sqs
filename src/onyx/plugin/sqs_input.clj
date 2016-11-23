@@ -68,6 +68,12 @@
     ;; Cannot safely drain an SQS queue via :done, as there may be pending retries
     false))
 
+(defn read-handle-exception [event lifecycle lf-kw exception]
+  :restart)
+
+(def input-calls
+  {:lifecycle/handle-exception read-handle-exception})
+
 (defn input [event]
   (let [task-map (:onyx.core/task-map event)
         _ (s/validate (os/UniqueTaskMap SQSInputTaskMap) task-map)
