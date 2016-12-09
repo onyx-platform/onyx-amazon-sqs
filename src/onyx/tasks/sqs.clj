@@ -46,8 +46,8 @@
                              :onyx/medium :sqs
                              :onyx/batch-size 10
                              :onyx/batch-timeout 1000
-                             :sqs/attribute-names ["All"]
-                             :sqs/message-attribute-names ["All"]
+                             :sqs/attribute-names []
+                             :sqs/message-attribute-names []
                              :onyx/doc "Reads segments from an SQS queue"}
                             task-opts)
            :lifecycles [{:lifecycle/task task-name
