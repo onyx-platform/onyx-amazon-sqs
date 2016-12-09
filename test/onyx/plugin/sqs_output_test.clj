@@ -21,7 +21,7 @@
   {:lifecycle/before-task-start inject-in-ch})
 
 (defn pull-queue-results [client queue-url tries]
-  (mapv :body (mapcat (fn [_] (let [messages (s/receive-messages client queue-url 10 [] 1)]
+  (mapv :body (mapcat (fn [_] (let [messages (s/receive-messages client queue-url 10 [] [] 1)]
                                 (run! #(s/delete-message client queue-url (:receipt-handle %)) messages)
                                 messages))
                       (range tries))))

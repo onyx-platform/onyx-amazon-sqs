@@ -8,7 +8,8 @@
             CreateQueueRequest CreateQueueResult DeleteQueueRequest
             GetQueueAttributesRequest GetQueueUrlResult Message
             ReceiveMessageRequest SendMessageBatchRequest
-            SendMessageBatchRequestEntry SendMessageRequest]))
+            SendMessageBatchRequestEntry SendMessageRequest
+            MessageAttributeValue]))
 
 (defn new-async-client ^AmazonSQSAsync [^String region]
   (let [credentials (DefaultAWSCredentialsProviderChain.)]
@@ -68,24 +69,34 @@
    ^String queue-url
    max-num-messages
    ^java.util.Collection attribute-names
+   ^java.util.Collection message-attribute-names
    wait-time-secs]
   (let [req ^ReceiveMessageRequest (ReceiveMessageRequest.)]
     (.withQueueUrl
-     (.withAttributeNames
-      (.withMaxNumberOfMessages req ^Integer
-                                (int max-num-messages))
-      attribute-names)
+      (.withAttributeNames
+        (.withMessageAttributeNames
+         (.withMaxNumberOfMessages req ^Integer
+         (int max-num-messages))
+         message-attribute-names)
+        attribute-names)
      queue-url)))
+
+(defn- clojurify-message-attributes [^Message msg]
+  (let [javafied-message-attributes (.getMessageAttributes msg)]
+    (->> javafied-message-attributes
+         (map (fn [[k ^MessageAttributeValue mav]] [(keyword k) (.getStringValue mav)]))
+         (into {}))))
 
 (defn message->clj [^Message msg]
   {:attributes (into {} (.getAttributes msg))
+   :message-attributes (clojurify-message-attributes msg)
    :body (.getBody msg)
    :body-md5 (.getMD5OfBody msg)
    :message-id (.getMessageId msg)
    :receipt-handle (.getReceiptHandle msg)})
 
-(defn receive-messages [^AmazonSQS client queue-url max-num-messages attribute-names wait-time-secs]
-  (let [request (receive-request client queue-url max-num-messages attribute-names wait-time-secs)
+(defn receive-messages [^AmazonSQS client queue-url max-num-messages attribute-names message-attribute-names wait-time-secs]
+  (let [request (receive-request client queue-url max-num-messages attribute-names message-attribute-names wait-time-secs)
         result (.receiveMessage client request)]
     (doall (map message->clj (.getMessages result)))))
 

@@ -15,7 +15,7 @@
            com.amazonaws.services.sqs.AmazonSQS))
 
 (defrecord SqsInput
-  [deserializer-fn max-pending batch-size batch-timeout pending-messages ^AmazonSQS client queue-url attribute-names]
+  [deserializer-fn max-pending batch-size batch-timeout pending-messages ^AmazonSQS client queue-url attribute-names message-attribute-names]
   p-ext/Pipeline
   (write-batch
     [this event]
@@ -25,7 +25,7 @@
     (try
       (let [pending (count @pending-messages)
             max-segments (min (- max-pending pending) batch-size)
-            received (sqs/receive-messages client queue-url max-segments attribute-names 0)
+            received (sqs/receive-messages client queue-url max-segments attribute-names message-attribute-names 0)
             deserialized (map #(update % :body deserializer-fn) received)
             batch (map #(t/input (java.util.UUID/randomUUID) %) deserialized)]
         (doseq [m batch]
@@ -82,7 +82,7 @@
         batch-size (:onyx/batch-size task-map)
         batch-timeout (arg-or-default :onyx/batch-timeout task-map)
         pending-messages (atom {})
-        {:keys [sqs/attribute-names sqs/deserializer-fn sqs/queue-url sqs/queue-name sqs/region]} task-map
+        {:keys [sqs/attribute-names sqs/message-attribute-names sqs/deserializer-fn sqs/queue-url sqs/queue-name sqs/region]} task-map
         deserializer-fn (kw->fn deserializer-fn)
         long-poll-timeout (int (/ batch-timeout 1000))
         client (sqs/new-async-buffered-client region {:max-batch-open-ms batch-timeout
@@ -97,4 +97,4 @@
                        Note that pending-timeout is in ms, whereas queue visibility timeout is in seconds."
                       {:onyx/pending-timeout pending-timeout
                        "VisibilityTimeout" visibility-timeout})))
-    (->SqsInput deserializer-fn max-pending batch-size batch-timeout pending-messages client queue-url attribute-names)))
+    (->SqsInput deserializer-fn max-pending batch-size batch-timeout pending-messages client queue-url attribute-names message-attribute-names)))
