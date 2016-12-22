@@ -13,9 +13,11 @@
             [taoensso.timbre :as timbre :refer [debug info warn]]))
 
 (def in-chan (atom nil))
+(def in-buffer (atom nil))
 
 (defn inject-in-ch [event lifecycle]
-  {:core.async/chan @in-chan})
+  {:core.async/buffer in-buffer
+   :core.async/chan @in-chan})
 
 (def in-calls
   {:lifecycle/before-task-start inject-in-ch})
@@ -28,7 +30,7 @@
 
 (def serializer-fn str)
 
-(def region "us-east-1")
+(def region "us-west-1")
 
 (deftest sqs-output-test
   (let [id (java.util.UUID/randomUUID)
@@ -70,22 +72,21 @@
                                ;; Add :out task later
                                ]
                      :lifecycles [{:lifecycle/task :in
-                                   :lifecycle/calls ::in-calls}
-                                  {:lifecycle/task :in
-                                   :lifecycle/calls :onyx.plugin.core-async/reader-calls}]}
+                                   :lifecycle/calls ::in-calls}]}
                     (add-task (task/sqs-output :out
                                                region
                                                ::serializer-fn
                                                {:sqs/queue-name queue-name})))
-            n-messages 100
+            n-messages 400
             _ (reset! in-chan (chan (inc (* 2 n-messages))))
+            _ (reset! in-buffer {})
             input-messages (map (fn [v] {:body {:n v}}) (range n-messages))
             non-default-queue-messages (map (fn [v] {:queue-url non-default-queue :body {:n v}})
                                             (range n-messages))]
         (run! #(>!! @in-chan %) (concat input-messages non-default-queue-messages))
         (let [job-id (:job-id (onyx.api/submit-job peer-config job))
-              results (pull-queue-results client queue-name 50)
-              non-default-results (pull-queue-results client non-default-queue-name 50)]
+              results (pull-queue-results client queue-name 200)
+              non-default-results (pull-queue-results client non-default-queue-name 200)]
 
           (is (= (count results)
                  (count (set results))))
