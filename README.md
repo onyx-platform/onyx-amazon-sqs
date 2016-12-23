@@ -34,6 +34,7 @@ Catalog entry:
  :sqs/queue-name queue-name
  :sqs/deserializer-fn :clojure.edn/read-string
  :sqs/attribute-names []
+ :sqs/message-attribute-names []
  :sqs/idle-backoff-ms idle-backoff-ms
  :onyx/doc "Reads segments from an SQS queue"}
 ```
@@ -52,12 +53,13 @@ SQS only supports batching up to 10 messages, which limits `:onyx/batch-size` to
 |`:sqs/region`                 | `string`  | The SQS region to use
 |`:sqs/queue-name`             | `string`  | The SQS queue name
 |`:sqs/queue-url`              | `string`  | The SQS queue url, in lieu of sqs/queue-name
-|`:sqs/attribute-names`        | `[string]`| A list of attributes to fetch for the queue entry 
+|`:sqs/attribute-names`        | `[string]`| A list of attributes to fetch for the queue entry. Default is to fetch no attributes. You can override it to fetch specific attributes or all (["All])
+|`:sqs/message-attribute-names`| `[string]`| A list of attributes to fetch for each message. Default is to fetch no message attributes. You can override it to fetch specific message attributes or all (["All])
 |`:sqs/idle-backoff-ms`        | `int`     | Backoff on empty read for backoff ms in order to reduce SQS per request costs
 
 
 Possible attribute names can be found in the <a href="http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/com/amazonaws/services/sqs/model/ReceiveMessageRequest.html#withAttributeNames(java.util.Collection)">API documentation</a>.
-
+And more about message attributes at <a href="http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/com/amazonaws/services/sqs/model/ReceiveMessageRequest.html#withMessageAttributeNames-java.util.Collection-">API documentation</a>.
 ##### Output Task
 
 Catalog entry:

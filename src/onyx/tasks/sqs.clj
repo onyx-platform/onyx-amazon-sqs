@@ -21,7 +21,8 @@
   {(s/optional-key :sqs/queue-name) s/Str
    (s/optional-key :sqs/queue-url) s/Str
    (s/optional-key :onyx/batch-timeout) batch-timeout-check
-   (s/optional-key :sqs/attribute-names) []
+   (s/optional-key :sqs/attribute-names) [s/Str]
+   (s/optional-key :sqs/message-attribute-names) [s/Str]
    :sqs/region s/Str
    :onyx/batch-size max-batch-size
    :sqs/deserializer-fn os/NamespacedKeyword
@@ -46,6 +47,7 @@
                              :onyx/batch-size 10
                              :onyx/batch-timeout 1000
                              :sqs/attribute-names []
+                             :sqs/message-attribute-names []
                              :onyx/doc "Reads segments from an SQS queue"}
                             task-opts)
            :lifecycles [{:lifecycle/task task-name
