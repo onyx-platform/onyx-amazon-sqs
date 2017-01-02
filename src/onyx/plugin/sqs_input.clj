@@ -35,12 +35,16 @@
   (checkpoint [this]
     {})
 
+  (checkpointed! [this epoch]
+    [true this])
+
   (recover [this replica-version checkpoint]
     (reset! epoch 1)
     this)
 
   (segment [this]
-    (swap! to-delete update @epoch conj (select-keys @segment [:message-id :receipt-handle]))
+    (swap! to-delete update @epoch conj 
+           (select-keys @segment [:message-id :receipt-handle]))
     @segment)
 
   (synced? [this ep]

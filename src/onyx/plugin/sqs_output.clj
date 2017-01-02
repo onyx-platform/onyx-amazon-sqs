@@ -32,7 +32,7 @@
   (swap! write-futures (fn [fs] (remove future-done? fs))))
 
 (defrecord SqsOutput [serializer-fn ^AmazonSQS client default-queue-url write-futures]
-p/Plugin
+  p/Plugin
   (start [this event] 
     ;; move producer creation to in here
     this)
@@ -46,16 +46,18 @@ p/Plugin
     (let [synced? (empty? (clear-done-writes! write-futures))]
       [synced? this]))
 
-  (prepare-batch
-    [this event replica]
+  (checkpointed! [this epoch]
+    [true this])
+
+  (prepare-batch [this event replica]
     [true this])
 
   (write-batch [this {:keys [onyx.core/results]} replica _]
     (if (>= (count (clear-done-writes! write-futures)) max-futures)
       [false this]
-      (if-let [segs (seq (:segments results))] 
+      (if-let [segs (seq (mapcat :leaves (:tree results)))] 
         (let [sqs-messages (map (fn [leaf]
-                                  (add-default-queue-url (:message leaf) default-queue-url))
+                                  (add-default-queue-url leaf default-queue-url))
                                 segs)]
           (run! (fn [[batch-queue-url messages]]
                   (let [bodies (map (comp serializer-fn :body) messages)]
