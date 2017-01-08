@@ -85,8 +85,8 @@
                                             (range n-messages))]
         (run! #(>!! @in-chan %) (concat input-messages non-default-queue-messages))
         (let [job-id (:job-id (onyx.api/submit-job peer-config job))
-              results (pull-queue-results client queue-name 200)
-              non-default-results (pull-queue-results client non-default-queue-name 200)]
+              results (pull-queue-results client queue-name 100)
+              non-default-results (pull-queue-results client non-default-queue-name 100)]
 
           (is (= (count results)
                  (count (set results))))

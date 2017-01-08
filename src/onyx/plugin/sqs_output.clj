@@ -47,14 +47,14 @@
       [synced? this]))
 
   (checkpointed! [this epoch]
-    [true this])
+    true)
 
   (prepare-batch [this event replica]
-    [true this])
+    true)
 
   (write-batch [this {:keys [onyx.core/results]} replica _]
     (if (>= (count (clear-done-writes! write-futures)) max-futures)
-      [false this]
+      false
       (if-let [segs (seq (mapcat :leaves (:tree results)))] 
         (let [sqs-messages (map (fn [leaf]
                                   (add-default-queue-url leaf default-queue-url))
@@ -65,8 +65,8 @@
                          (sqs/send-message-batch-async client batch-queue-url)
                          (swap! write-futures conj))))
                 (group-by :queue-url sqs-messages))
-          [true this])
-        [true this]))))
+          true)
+        true))))
 
 (defn output [event]
   (let [task-map (:onyx.core/task-map event)
