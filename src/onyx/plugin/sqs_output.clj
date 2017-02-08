@@ -43,8 +43,12 @@
 
   o/Output
   (synced? [this epoch]
-    (let [synced? (empty? (clear-done-writes! write-futures))]
-      [synced? this]))
+    (empty? (clear-done-writes! write-futures)))
+
+  (recover! [this replica-version checkpoint]
+    this)
+
+  (checkpoint [this])
 
   (checkpointed! [this epoch]
     true)
