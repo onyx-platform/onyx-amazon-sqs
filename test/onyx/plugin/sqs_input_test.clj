@@ -34,7 +34,7 @@
                      :onyx.messaging/bind-addr "localhost"}
         queue-name (apply str (take 10 (str (java.util.UUID/randomUUID))))
         client (s/new-async-buffered-client region)
-        queue (s/create-queue client queue-name {"VisibilityTimeout" "20"
+        queue (s/create-queue client queue-name {"VisibilityTimeout" "10"
                                                  "MessageRetentionPeriod" "320"})]
     (with-test-env [test-env [3 env-config peer-config]]
       (let [batch-size 10
@@ -55,15 +55,12 @@
                                 :onyx/max-peers 1
                                 :onyx/doc "Writes segments to a core.async channel"}]
                      :lifecycles [{:lifecycle/task :out
-                                   :lifecycle/calls ::out-calls}
-                                  {:lifecycle/task :out
-                                   :lifecycle/calls :onyx.plugin.core-async/writer-calls}]}
+                                   :lifecycle/calls ::out-calls}]}
                     (add-task (task/sqs-input :in
                                               region
                                               ::clojure.edn/read-string
                                               {:sqs/queue-name queue-name
-                                               :onyx/batch-timeout 1000
-                                               :onyx/pending-timeout 10000})))
+                                               :onyx/batch-timeout 1000})))
             n-messages 500
             input-messages (map (fn [v] {:n v}) (range n-messages))
             send-result (time (doall (pmap #(s/send-message-batch client queue %)
@@ -74,14 +71,15 @@
                 "Failed to send all messages to SQS. This invalidates the test results, but does not mean that the plugin is broken.")
 
         (reset! out-chan (chan 1000000))
+        (println "QUEUE NAME" queue-name)
 
         (let [job-id (:job-id (onyx.api/submit-job peer-config job))
-              timeout-ch (timeout 60000)
-              results (vec (keep first (repeatedly n-messages #(alts!! [timeout-ch @out-chan] :priority true))))]
+              timeout-ch (timeout 40000)
+              results (vec (keep first 
+                                 (repeatedly n-messages 
+                                             #(alts!! [timeout-ch @out-chan] :priority true))))]
 
-          (is (= (count results)
-                 (count (set (map :body results)))))
-
+          (Thread/sleep 30000)
           (is (= input-messages
                  (sort-by :n (map :body results)))))))
-    (s/delete-queue client queue)))
+    #_(s/delete-queue client queue)))
