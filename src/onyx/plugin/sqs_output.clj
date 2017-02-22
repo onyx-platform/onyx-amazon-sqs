@@ -6,9 +6,7 @@
             [onyx.static.util :refer [kw->fn]]
             [onyx.tasks.sqs :refer [SQSOutputTaskMap]]
             [schema.core :as s]
-            [onyx.plugin.protocols.plugin :as p]
-            [onyx.plugin.protocols.input :as i]
-            [onyx.plugin.protocols.output :as o]
+            [onyx.plugin.protocols :as p]
             [taoensso.timbre :as timbre :refer [error warn]])
   (:import com.amazonaws.AmazonClientException
            com.amazonaws.handlers.AsyncHandler
@@ -41,18 +39,20 @@
     (.shutdown client)
     this)
 
-  o/Output
+  p/BarrierSynchronization
   (synced? [this epoch]
     (empty? (clear-done-writes! write-futures)))
+  (completed? [this]
+    (empty? (clear-done-writes! write-futures)))
 
+  p/Checkpointed
   (recover! [this replica-version checkpoint]
     this)
-
   (checkpoint [this])
-
   (checkpointed! [this epoch]
     true)
 
+  p/Output
   (prepare-batch [this event replica _]
     true)
 
