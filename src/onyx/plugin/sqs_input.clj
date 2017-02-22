@@ -4,13 +4,13 @@
             [onyx.static.default-vals :refer [arg-or-default]]
             [onyx.static.util :refer [kw->fn]]
             [onyx.tasks.sqs :refer [SQSInputTaskMap]]
-            [onyx.plugin.protocols.plugin :as p]
-            [onyx.plugin.protocols.input :as i]
-            [onyx.plugin.protocols.output :as o]
+            [onyx.plugin.protocols :as p]
             [schema.core :as s]
             [taoensso.timbre :as timbre :refer [info warn]])
   (:import com.amazonaws.AmazonClientException
            com.amazonaws.services.sqs.AmazonSQS))
+
+(def sqs-max-batch-size 10)
 
 (defrecord SqsInput
   [deserializer-fn batch-size batch-timeout ^AmazonSQS client queue-url 
@@ -31,29 +31,34 @@
     (.shutdown client)
     this)
 
-  i/Input
+  p/Checkpointed
   (checkpoint [this]
     {})
 
-  (checkpointed! [this epoch]
-    (->> (partition-all 10 (get @processing epoch))
+  (checkpointed! [this epoch])
+
+  (recover! [this replica-version checkpoint]
+    (vreset! epoch 1)
+    this)
+
+  p/BarrierSynchronization
+  (synced? [this ep]
+    (vswap! epoch inc)
+    (->> (partition-all sqs-max-batch-size (get @processing epoch))
          (map (fn [batch]
                 (->> batch
                      (map :receipt-handle)     
                      (sqs/delete-message-async-batch client queue-url))))
          (doall) 
          (run! deref))
+    (vswap! processing dissoc epoch)
     true)
 
-  (recover! [this replica-version checkpoint]
-    (vreset! epoch 1)
-    this)
+  ;; it's difficult to seal an SQS task as the messages may just be invisible
+  (completed? [this] 
+    false)
 
-  (synced? [this ep]
-    (do
-     (vswap! epoch inc)
-     true))
-
+  p/Input
   (poll! [this _]
     (if-let [segment (first @batch)] 
       (do
@@ -65,10 +70,7 @@
                                            message-attribute-names 0)
             deserialized (map #(update % :body deserializer-fn) received)]
         (vreset! batch deserialized)
-        nil)))
-
-  (completed? [this]
-    false))
+        nil))))
 
 (defn read-handle-exception [event lifecycle lf-kw exception]
   :restart)
