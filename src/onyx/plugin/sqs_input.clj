@@ -43,7 +43,6 @@
 
   p/BarrierSynchronization
   (synced? [this ep]
-    (vswap! epoch inc)
     (->> (partition-all sqs-max-batch-size (get @processing epoch))
          (map (fn [batch]
                 (->> batch
@@ -52,6 +51,7 @@
          (doall) 
          (run! deref))
     (vswap! processing dissoc epoch)
+    (vswap! epoch inc)
     true)
 
   ;; it's difficult to seal an SQS task as the messages may just be invisible
