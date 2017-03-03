@@ -17,6 +17,13 @@ In your peer boot-up namespace:
           [onyx.plugin.sqs-output])
 ```
 
+#### ABS Limitations
+
+* Currently at least once
+* Need to check whether async writes and reads failed. For reads, retry, a few times and then die.
+* For writes, we need to throw so that the pipeline is reset. Could do this
+  without a throw, just need a special log message to realign
+
 #### Functions
 
 ##### Input Task

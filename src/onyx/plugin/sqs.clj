@@ -9,6 +9,7 @@
             GetQueueAttributesRequest GetQueueUrlResult Message
             ReceiveMessageRequest SendMessageBatchRequest
             SendMessageBatchRequestEntry SendMessageRequest
+            DeleteMessageBatchRequest DeleteMessageBatchRequestEntry
             MessageAttributeValue]))
 
 (defn new-async-client ^AmazonSQSAsync [^String region]
@@ -109,6 +110,16 @@
 (defn delete-message-async [^AmazonSQSAsync client ^String queue-url ^String receipt-handle]
   (.deleteMessageAsync client queue-url receipt-handle))
 
+(defn delete-message-batch-request ^DeleteMessageBatchRequest [queue-url receipt-handles]
+  (DeleteMessageBatchRequest. queue-url
+                              (map (fn [^String handle]
+                                     (DeleteMessageBatchRequestEntry. (str (java.util.UUID/randomUUID)) 
+                                                                      handle))
+                                   receipt-handles)))
+
+(defn delete-message-async-batch [^AmazonSQSAsync client ^String queue-url receipt-handles]
+  (.deleteMessageBatchAsync client (delete-message-batch-request queue-url receipt-handles)))
+
 (defn send-message-batch-request
   ^SendMessageBatchRequest [queue-url messages]
   (SendMessageBatchRequest. queue-url
@@ -120,8 +131,8 @@
   (.sendMessageBatch client (send-message-batch-request queue-url messages)))
 
 (defn send-message-batch-async
-  [^AmazonSQSAsync client ^String queue-url messages ^AsyncHandler handler]
-  (.sendMessageBatchAsync client (send-message-batch-request queue-url messages) handler))
+  [^AmazonSQSAsync client ^String queue-url messages]
+  (.sendMessageBatchAsync client (send-message-batch-request queue-url messages)))
 
 (defn send-message [^AmazonSQS client ^String queue-url ^String message]
   (.sendMessage client (SendMessageRequest. queue-url message)))

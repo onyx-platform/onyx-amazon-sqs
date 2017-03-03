@@ -1,48 +1,22 @@
 (ns onyx.plugin.sqs-output
   (:require [onyx
              [extensions :as extensions]
-             [schema :as os]
-             [types :refer [dec-count! inc-count!]]]
-            [onyx.log.commands.peer-replica-view :refer [peer-site]]
-            [onyx.peer
-             [function :as function]
-             [pipeline-extensions :as p-ext]]
+             [schema :as os]]
             [onyx.plugin.sqs :as sqs]
             [onyx.static.util :refer [kw->fn]]
             [onyx.tasks.sqs :refer [SQSOutputTaskMap]]
             [schema.core :as s]
+            [onyx.plugin.protocols :as p]
             [taoensso.timbre :as timbre :refer [error warn]])
   (:import com.amazonaws.AmazonClientException
            com.amazonaws.handlers.AsyncHandler
            com.amazonaws.services.sqs.AmazonSQS))
 
-(defn default-queue-url [segment queue-url]
+(defn add-default-queue-url [segment queue-url]
   (update segment :queue-url #(or %
                                   queue-url
                                   (throw (ex-info "queue-url must be defined in segment or task map."
                                                   {:task-map-queue-url queue-url :segment segment})))))
-
-(defn results->segments-acks [results queue-url]
-  (mapcat (fn [{:keys [leaves]} ack]
-            (map (fn [leaf]
-                   (list (default-queue-url (:message leaf) queue-url)
-                         ack))
-                 leaves))
-          (:tree results)
-          (:acks results)))
-
-(defn build-ack-callback [peer-replica-view messenger acks]
-  (reify AsyncHandler
-    (onSuccess [this request result]
-      (try
-        (doseq [ack acks]
-          (when (dec-count! ack)
-            (when-let [site (peer-site peer-replica-view (:completion-id ack))]
-              (extensions/internal-ack-segment messenger site ack))))
-        (catch Throwable t
-          (error t "sqs-output: error in ack handler"))))
-    (onError [this e]
-      (warn e "sqs-output: batch send failed"))))
 
 (defn write-handle-exception [event lifecycle lf-kw exception]
   :restart)
@@ -50,30 +24,53 @@
 (def output-calls
   {:lifecycle/handle-exception write-handle-exception})
 
-(defrecord SqsOutput [serializer-fn ^AmazonSQS client default-queue-url]
-  p-ext/Pipeline
-  (read-batch
-    [_ event]
-    (function/read-batch event))
+(def max-futures 10)
 
-  (write-batch
-    [_ {:keys [onyx.core/results onyx.core/peer-replica-view onyx.core/messenger] :as event}]
-    (let [segments-acks (results->segments-acks results default-queue-url)]
-      (run! inc-count! (map second segments-acks))
-      (run! (fn [[batch-queue-url s]]
-              (try
-                (let [acks (map second s)
-                      segments (map (comp serializer-fn :body first) s)
-                      callback (build-ack-callback peer-replica-view messenger acks)]
-                  ;; Increment ack reference count because we are writing async
-                  (sqs/send-message-batch-async client batch-queue-url segments callback))
-                (catch AmazonClientException e
-                  (warn e "sqs-output: write-batch caught exception"))))
-            (group-by (comp :queue-url first) segments-acks)))
-    {})
+(defn clear-done-writes! [write-futures]
+  (swap! write-futures (fn [fs] (remove future-done? fs))))
 
-  (seal-resource
-    [_ event]))
+(defrecord SqsOutput [serializer-fn ^AmazonSQS client default-queue-url write-futures]
+  p/Plugin
+  (start [this event] 
+    ;; move producer creation to in here
+    this)
+
+  (stop [this event] 
+    (.shutdown client)
+    this)
+
+  p/BarrierSynchronization
+  (synced? [this epoch]
+    (empty? (clear-done-writes! write-futures)))
+  (completed? [this]
+    (empty? (clear-done-writes! write-futures)))
+
+  p/Checkpointed
+  (recover! [this replica-version checkpoint]
+    this)
+  (checkpoint [this])
+  (checkpointed! [this epoch]
+    true)
+
+  p/Output
+  (prepare-batch [this event replica _]
+    true)
+
+  (write-batch [this {:keys [onyx.core/results]} replica _]
+    (if (>= (count (clear-done-writes! write-futures)) max-futures)
+      false
+      (if-let [segs (seq (mapcat :leaves (:tree results)))] 
+        (let [sqs-messages (map (fn [leaf]
+                                  (add-default-queue-url leaf default-queue-url))
+                                segs)]
+          (run! (fn [[batch-queue-url messages]]
+                  (let [bodies (map (comp serializer-fn :body) messages)]
+                    (->> bodies
+                         (sqs/send-message-batch-async client batch-queue-url)
+                         (swap! write-futures conj))))
+                (group-by :queue-url sqs-messages))
+          true)
+        true))))
 
 (defn output [event]
   (let [task-map (:onyx.core/task-map event)
@@ -84,4 +81,4 @@
         default-queue-url (or queue-url
                               (if queue-name
                                 (sqs/get-queue-url client queue-name)))]
-    (->SqsOutput serializer-fn client default-queue-url)))
+    (->SqsOutput serializer-fn client default-queue-url (atom []))))
