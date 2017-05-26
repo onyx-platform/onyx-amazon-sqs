@@ -43,14 +43,14 @@
 
   p/BarrierSynchronization
   (synced? [this ep]
-    (->> (partition-all sqs-max-batch-size (get @processing epoch))
+    (->> (partition-all sqs-max-batch-size (get @processing ep))
          (map (fn [batch]
                 (->> batch
                      (map :receipt-handle)     
                      (sqs/delete-message-async-batch client queue-url))))
          (doall) 
          (run! deref))
-    (vswap! processing dissoc epoch)
+    (vswap! processing dissoc ep)
     (vswap! epoch inc)
     true)
 
