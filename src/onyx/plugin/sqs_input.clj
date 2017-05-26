@@ -68,7 +68,7 @@
       (let [received (sqs/receive-messages client queue-url batch-size
                                            attribute-names
                                            message-attribute-names 0)
-            deserialized (map #(update % :body deserializer-fn) received)]
+            deserialized (doall (map #(update % :body deserializer-fn) received))]
         (vreset! batch deserialized)
         nil))))
 
