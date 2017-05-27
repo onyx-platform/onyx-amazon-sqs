@@ -43,14 +43,14 @@
 
   p/BarrierSynchronization
   (synced? [this ep]
-    (->> (partition-all sqs-max-batch-size (get @processing epoch))
+    (->> (partition-all sqs-max-batch-size (get @processing ep))
          (map (fn [batch]
                 (->> batch
                      (map :receipt-handle)     
                      (sqs/delete-message-async-batch client queue-url))))
          (doall) 
          (run! deref))
-    (vswap! processing dissoc epoch)
+    (vswap! processing dissoc ep)
     (vswap! epoch inc)
     true)
 
@@ -68,7 +68,7 @@
       (let [received (sqs/receive-messages client queue-url batch-size
                                            attribute-names
                                            message-attribute-names 0)
-            deserialized (map #(update % :body deserializer-fn) received)]
+            deserialized (doall (map #(update % :body deserializer-fn) received))]
         (vreset! batch deserialized)
         nil))))
 
