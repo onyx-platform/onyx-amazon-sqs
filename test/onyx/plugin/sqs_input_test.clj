@@ -77,9 +77,11 @@
               timeout-ch (timeout 40000)
               results (vec (keep first 
                                  (repeatedly n-messages 
-                                             #(alts!! [timeout-ch @out-chan] :priority true))))]
-
-          (Thread/sleep 30000)
+                                             #(alts!! [timeout-ch @out-chan] :priority true))))
+              get-epoch #(-> (onyx.api/job-snapshot-coordinates peer-config (-> peer-config :onyx/tenancy-id) job-id) :epoch)
+              epoch (get-epoch)]
+          (while (= epoch (get-epoch))
+            (Thread/sleep 1000))
           (is (= input-messages
                  (sort-by :n (map :body results)))))))
     #_(s/delete-queue client queue)))
