@@ -9,3 +9,5 @@ pom.xml.asc
 /.nrepl-port
 onyx.log
 scripts/release-scripts
+*.iml
+/.idea
