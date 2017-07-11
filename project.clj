@@ -13,7 +13,7 @@
                              :sign-releases false}}
   :dependencies [[org.clojure/clojure "1.8.0"]
                  ^{:voom {:repo "git@github.com:onyx-platform/onyx.git" :branch "master"}}
-                 [org.onyxplatform/onyx "0.10.0-20170710_220228-gb18ba48"]
+                 [org.onyxplatform/onyx "0.10.0-20170711_202313-gf958fe6"]
                  [com.amazonaws/aws-java-sdk "1.11.76"]]
   :global-vars  {*warn-on-reflection* true}
   :resource-paths ["resources/"]
