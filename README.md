@@ -94,6 +94,15 @@ SQS only supports batching up to 10 messages, which limits `:onyx/batch-size` to
 |`:sqs/queue-url`              | `string`  | Optional SQS queue url. If not present, segments will be routed via the `:queue-url` key of the segment
 |`:sqs/serializer-fn`          | `keyword` | A keyword pointing to a fully qualified function that will serialize the :body key of the segment to a string
 
+#### AWS Role Privileges
+The AWS role running Onyx should have the following AWS privileges:
+* sqs:SendMessage*
+* sqs:ReceiveMessage
+* sqs:DeleteMessage*
+* sqs:ChangeMessageVisibility*
+* sqs:GetQueueAttributes
+* sqs:GetQueueUrl
+
 #### Acknowledgments
 
 Many thanks to [LockedOn](http://www.lockedon.com) for allowing this work to be open
