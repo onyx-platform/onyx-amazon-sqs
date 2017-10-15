@@ -11,6 +11,7 @@
            com.amazonaws.services.sqs.AmazonSQS))
 
 (def sqs-max-batch-size 10)
+(def change-visibility-client-linger-ms 1000)
 
 (defrecord SqsInput
   [deserializer-fn batch-size batch-timeout ^AmazonSQS client queue-url 
@@ -21,40 +22,47 @@
     this)
 
   (stop [this event] 
-    ;; TODO::: immediately put all of the messages that are in processing back on queue
-    ; (try
-    ;  (let [message-id (:message-id (@pending-messages segment-id))]
-    ;    ;; Change visibility on message to 0 so that SQS will retry the message through read-batch
-    ;    (sqs/change-visibility-request-async client queue-url message-id 0))
-    ;  (catch AmazonClientException e
-    ;    (warn e "sqs-input: retry-segment, error on change visibility request")))
-    (.shutdown client)
+    ;; immediately put all of the messages that are in processing back on queue
+    (let [message-ids (map :message-id (reduce into [] (vals @processing)))] 
+      (if (empty? message-ids)
+        (.shutdown client)
+        (do 
+         (try
+          (doseq [message-id message-ids]
+            ;; Change visibility on message to 0 so that SQS will retry the message through read-batch
+            (sqs/change-visibility-request-async client queue-url message-id (int 0)))
+          (catch AmazonClientException e
+            (warn e "sqs-input: error on change visibility request")))
+         ;; spin up a thread to shutdown the client after a reasonable amount of time
+         ;; has passed that would allow the visibility requests to have completed
+         (future (Thread/sleep change-visibility-client-linger-ms)
+                 (.shutdown client)))))
     this)
 
   p/Checkpointed
-  (checkpoint [this]
-    {})
+  (checkpoint [this])
 
-  (checkpointed! [this epoch])
-
-  (recover! [this replica-version checkpoint]
-    (vreset! epoch 1)
-    this)
-
-  p/BarrierSynchronization
-  (synced? [this ep]
-    (->> (partition-all sqs-max-batch-size (get @processing ep))
+  (checkpointed! [this epoch]
+    (->> (partition-all sqs-max-batch-size (get @processing epoch))
          (map (fn [batch]
                 (->> batch
                      (map :receipt-handle)     
                      (sqs/delete-message-async-batch client queue-url))))
          (doall) 
          (run! deref))
-    (vswap! processing dissoc ep)
-    (vswap! epoch inc)
+    (vswap! processing dissoc epoch))
+
+  (recover! [this replica-version checkpoint]
+    (vreset! epoch 1)
+    (vreset! processing {})
+    this)
+
+  p/BarrierSynchronization
+  (synced? [this ep]
+    (vreset! epoch (inc ep))
     true)
 
-  ;; it's difficult to seal an SQS task as the messages may just be invisible
+  ;; it's messy to seal an SQS task as the messages may just be invisible
   (completed? [this] 
     false)
 

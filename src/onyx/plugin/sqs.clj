@@ -59,11 +59,14 @@
 (defn get-queue-url [^AmazonSQS client ^String queue-name]
   (.getQueueUrl ^GetQueueUrlResult (.getQueueUrl client queue-name)))
 
-(defn queue-attributes [^AmazonSQS client ^String queue-url]
-  (into {} (.getAttributes
-            (.getQueueAttributes client
-                                 (.withAttributeNames (GetQueueAttributesRequest. queue-url)
-                                                      ["All"])))))
+(defn queue-attributes 
+  ([client queue-url]
+   (queue-attributes client queue-url ["All"]))
+  ([^AmazonSQS client ^String queue-url attrs]
+   (into {} (.getAttributes
+             (.getQueueAttributes client
+                                  (.withAttributeNames (GetQueueAttributesRequest. queue-url)
+                                                       attrs))))))
 
 (defn receive-request ^ReceiveMessageRequest
   [^AmazonSQS client
