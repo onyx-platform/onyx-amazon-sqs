@@ -36,12 +36,12 @@
     this)
 
   (stop [this event] 
-    (.shutdown client)
     this)
 
   p/BarrierSynchronization
   (synced? [this epoch]
     (empty? (clear-done-writes! write-futures)))
+
   (completed? [this]
     (empty? (clear-done-writes! write-futures)))
 
