@@ -83,6 +83,7 @@
             (Thread/sleep 1000))
           (is (= input-messages
                  (sort-by :n (map :body results))))
+          (onyx.api/kill-job peer-config job-id)
           (let [attrs (s/queue-attributes client queue ["ApproximateNumberOfMessages" 
                                                         "ApproximateNumberOfMessagesNotVisible"])]
             (is (= "0" (get attrs "ApproximateNumberOfMessages")))

@@ -56,21 +56,21 @@
   (prepare-batch [this event replica _]
     true)
 
-  (write-batch [this {:keys [onyx.core/results]} replica _]
+  (write-batch [this {:keys [onyx.core/write-batch]} replica _]
     (if (>= (count (clear-done-writes! write-futures)) max-futures)
       false
-      (if-let [segs (seq (mapcat :leaves (:tree results)))] 
-        (let [sqs-messages (map (fn [leaf]
-                                  (add-default-queue-url leaf default-queue-url))
-                                segs)]
-          (run! (fn [[batch-queue-url messages]]
-                  (let [bodies (map (comp serializer-fn :body) messages)]
-                    (->> bodies
-                         (sqs/send-message-batch-async client batch-queue-url)
-                         (swap! write-futures conj))))
-                (group-by :queue-url sqs-messages))
-          true)
-        true))))
+      (do 
+       (when-not (empty? write-batch) 
+         (->> write-batch
+              (map (fn [leaf]
+                     (add-default-queue-url leaf default-queue-url)))
+              (group-by :queue-url)
+              (run! (fn [[batch-queue-url messages]]
+                      (let [bodies (map (comp serializer-fn :body) messages)]
+                        (->> bodies
+                             (sqs/send-message-batch-async client batch-queue-url)
+                             (swap! write-futures conj)))))))
+       true))))
 
 (defn output [event]
   (let [task-map (:onyx.core/task-map event)

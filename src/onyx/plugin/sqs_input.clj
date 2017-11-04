@@ -11,7 +11,6 @@
            com.amazonaws.services.sqs.AmazonSQS))
 
 (def sqs-max-batch-size 10)
-(def change-visibility-client-linger-ms 1000)
 
 (defrecord SqsInput
   [deserializer-fn batch-size batch-timeout ^AmazonSQS client queue-url 
@@ -24,19 +23,13 @@
   (stop [this event] 
     ;; immediately put all of the messages that are in processing back on queue
     (let [message-ids (map :message-id (reduce into [] (vals @processing)))] 
-      (if (empty? message-ids)
-        (.shutdown client)
-        (do 
-         (try
-          (doseq [message-id message-ids]
-            ;; Change visibility on message to 0 so that SQS will retry the message through read-batch
-            (sqs/change-visibility-request-async client queue-url message-id (int 0)))
-          (catch AmazonClientException e
-            (warn e "sqs-input: error on change visibility request")))
-         ;; spin up a thread to shutdown the client after a reasonable amount of time
-         ;; has passed that would allow the visibility requests to have completed
-         (future (Thread/sleep change-visibility-client-linger-ms)
-                 (.shutdown client)))))
+      (when-not (empty? message-ids)
+        (try
+         (doseq [message-id message-ids]
+           ;; Change visibility on message to 0 so that SQS will retry the message through read-batch
+           (sqs/change-visibility-request-async client queue-url message-id (int 0)))
+         (catch AmazonClientException e
+           (warn e "sqs-input: error on change visibility request")))))
     this)
 
   p/Checkpointed
