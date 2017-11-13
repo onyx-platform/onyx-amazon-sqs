@@ -71,8 +71,6 @@
                 "Failed to send all messages to SQS. This invalidates the test results, but does not mean that the plugin is broken.")
 
         (reset! out-chan (chan 1000000))
-        (println "QUEUE NAME" queue-name)
-
         (let [job-id (:job-id (onyx.api/submit-job peer-config job))
               timeout-ch (timeout 40000)
               results (vec (keep first 
@@ -80,8 +78,14 @@
                                              #(alts!! [timeout-ch @out-chan] :priority true))))
               get-epoch #(-> (onyx.api/job-snapshot-coordinates peer-config (-> peer-config :onyx/tenancy-id) job-id) :epoch)
               epoch (get-epoch)]
+          (Thread/sleep 10000)
           (while (= epoch (get-epoch))
             (Thread/sleep 1000))
           (is (= input-messages
-                 (sort-by :n (map :body results)))))))
-    #_(s/delete-queue client queue)))
+                 (sort-by :n (map :body results))))
+          (onyx.api/kill-job peer-config job-id)
+          (let [attrs (s/queue-attributes client queue ["ApproximateNumberOfMessages" 
+                                                        "ApproximateNumberOfMessagesNotVisible"])]
+            (is (= "0" (get attrs "ApproximateNumberOfMessages")))
+            (is (= "0" (get attrs "ApproximateNumberOfMessagesNotVisible")))))))
+    (s/delete-queue client queue)))

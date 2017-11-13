@@ -7,7 +7,7 @@ Onyx plugin for Amazon SQS.
 In your project file:
 
 ```clojure
-[org.onyxplatform/onyx-amazon-sqs "0.10.0.0"]
+[org.onyxplatform/onyx-amazon-sqs "0.12.0.0-SNAPSHOT"]
 ```
 
 In your peer boot-up namespace:
@@ -93,6 +93,15 @@ SQS only supports batching up to 10 messages, which limits `:onyx/batch-size` to
 |`:sqs/queue-name`             | `string`  | Optional SQS queue name. If not present, segments will be routed via the `:queue-url` key of the segment
 |`:sqs/queue-url`              | `string`  | Optional SQS queue url. If not present, segments will be routed via the `:queue-url` key of the segment
 |`:sqs/serializer-fn`          | `keyword` | A keyword pointing to a fully qualified function that will serialize the :body key of the segment to a string
+
+#### AWS Role Privileges
+The AWS role running Onyx should have the following AWS privileges:
+* sqs:SendMessage*
+* sqs:ReceiveMessage
+* sqs:DeleteMessage*
+* sqs:ChangeMessageVisibility*
+* sqs:GetQueueAttributes
+* sqs:GetQueueUrl
 
 #### Acknowledgments
 
