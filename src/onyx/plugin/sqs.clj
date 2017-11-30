@@ -119,5 +119,5 @@
   (.sendMessageAsync client (SendMessageRequest. queue-url message)))
 
 (defn change-visibility-request-async [^AmazonSQSAsync client ^String queue-url message-id visibility-time]
-  (let [visibility-request ^ChangeMessageVisibilityRequest (ChangeMessageVisibilityRequest. queue-url message-id visibility-time)]
+  (let [visibility-request ^ChangeMessageVisibilityRequest (ChangeMessageVisibilityRequest. queue-url message-id (int visibility-time))]
     (.changeMessageVisibilityAsync client visibility-request)))
