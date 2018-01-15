@@ -36,14 +36,19 @@
   (checkpoint [this])
 
   (checkpointed! [this epoch]
-    (->> (partition-all sqs-max-batch-size (get @processing epoch))
-         (map (fn [batch]
-                (->> batch
-                     (map :receipt-handle)     
-                     (sqs/delete-message-async-batch client queue-url))))
-         (doall) 
-         (run! deref))
-    (vswap! processing dissoc epoch))
+    (run! (fn [epoch] 
+            (->> (partition-all sqs-max-batch-size (get @processing epoch))
+                 (map (fn [batch]
+                        (->> batch
+                             (map :receipt-handle)     
+                             (sqs/delete-message-async-batch client queue-url))))
+                 (doall) 
+                 (run! deref))
+            (vswap! processing dissoc epoch))
+          ;; defensively account for case where Onyx skips notification
+          ;; of a successful checkpoint.
+          (filter (fn [e] (<= e (inc epoch)))
+                  (keys @processing))))
 
   (recover! [this replica-version checkpoint]
     (vreset! epoch 1)
