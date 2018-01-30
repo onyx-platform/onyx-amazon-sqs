@@ -63,10 +63,10 @@
                                               ::clojure.edn/read-string
                                               {:sqs/queue-name queue-name
                                                :sqs/max-batch 10
-                                               :sqs/max-inflight-receive-batches 1
-                                               :onyx/max-segments-per-barrier 10
+                                               :sqs/max-inflight-receive-batches 2
+                                               :onyx/max-segments-per-barrier 20
                                                :onyx/batch-timeout 1000})))
-            n-messages 500
+            n-messages 200
             input-messages (map (fn [v] {:n v}) (range n-messages))
             send-result (time (doall (map #(s/send-message-batch client queue %)
                                           (partition-all 10 (map pr-str input-messages)))))]
