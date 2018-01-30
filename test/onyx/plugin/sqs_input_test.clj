@@ -1,6 +1,7 @@
 (ns onyx.plugin.sqs-input-test
-  (:require [clojure.core.async :refer [alts!! chan timeout]]
+  (:require [clojure.core.async :refer [chan timeout poll!]]
             [clojure.test :refer [deftest is]]
+            [taoensso.timbre :as timbre :refer [info warn]]
             [onyx api
              [job :refer [add-task]]
              [test-helper :refer [with-test-env]]]
@@ -29,13 +30,14 @@
                      :onyx.peer/job-scheduler :onyx.job-scheduler/greedy
                      :onyx.messaging.aeron/embedded-driver? true
                      :onyx.messaging/allow-short-circuit? false
+                     :onyx.peer/coordinator-barrier-period-ms 1000
                      :onyx.messaging/impl :aeron
                      :onyx.messaging/peer-port 40200
                      :onyx.messaging/bind-addr "localhost"}
         queue-name (apply str (take 10 (str (java.util.UUID/randomUUID))))
         client (s/new-async-buffered-client region)
-        queue (s/create-queue client queue-name {"VisibilityTimeout" "10"
-                                                 "MessageRetentionPeriod" "320"})]
+        queue (s/create-queue client queue-name {"VisibilityTimeout" "30"
+                                                 "MessageRetentionPeriod" "3200"})]
     (with-test-env [test-env [3 env-config peer-config]]
       (let [batch-size 10
             job (-> {:workflow [[:in :identity] [:identity :out]]
@@ -60,11 +62,14 @@
                                               region
                                               ::clojure.edn/read-string
                                               {:sqs/queue-name queue-name
+                                               :sqs/max-batch 10
+                                               :sqs/max-inflight-receive-batches 1
+                                               :onyx/max-segments-per-barrier 10
                                                :onyx/batch-timeout 1000})))
             n-messages 500
             input-messages (map (fn [v] {:n v}) (range n-messages))
-            send-result (time (doall (pmap #(s/send-message-batch client queue %)
-                                           (partition-all 10 (map pr-str input-messages)))))]
+            send-result (time (doall (map #(s/send-message-batch client queue %)
+                                          (partition-all 10 (map pr-str input-messages)))))]
         (assert (empty? 
                   (remove true? 
                           (map #(empty? (.getFailed %)) send-result))) 
@@ -72,20 +77,27 @@
 
         (reset! out-chan (chan 1000000))
         (let [job-id (:job-id (onyx.api/submit-job peer-config job))
-              timeout-ch (timeout 40000)
-              results (vec (keep first 
-                                 (repeatedly n-messages 
-                                             #(alts!! [timeout-ch @out-chan] :priority true))))
+              end-time (+ (System/currentTimeMillis) 2000000) 
+              results (loop [vs []]
+                        (if (or (> (System/currentTimeMillis) end-time)
+                                (= n-messages (count vs)))
+                          vs
+                          (if-let [v (poll! @out-chan)]
+                            (do (info "Read" (:message-id v))
+                                (recur (conj vs v)))
+                            (do
+                             (Thread/sleep 1000)
+                             (recur vs)))))
               get-epoch #(-> (onyx.api/job-snapshot-coordinates peer-config (-> peer-config :onyx/tenancy-id) job-id) :epoch)
               epoch (get-epoch)]
           (Thread/sleep 10000)
           (while (= epoch (get-epoch))
             (Thread/sleep 1000))
-          (is (= input-messages
-                 (sort-by :n (map :body results))))
+          (is (= (sort (map :n input-messages))
+                 (sort (map (comp :n :body) results))))
           (onyx.api/kill-job peer-config job-id)
           (let [attrs (s/queue-attributes client queue ["ApproximateNumberOfMessages" 
                                                         "ApproximateNumberOfMessagesNotVisible"])]
             (is (= "0" (get attrs "ApproximateNumberOfMessages")))
             (is (= "0" (get attrs "ApproximateNumberOfMessagesNotVisible")))))))
-    (s/delete-queue client queue)))
+    #_(s/delete-queue client queue)))
