@@ -23,6 +23,8 @@
    (s/optional-key :onyx/batch-timeout) batch-timeout-check
    (s/optional-key :sqs/attribute-names) [s/Str]
    (s/optional-key :sqs/message-attribute-names) [s/Str]
+   (s/optional-key :sqs/max-batch) s/Int
+   (s/optional-key :sqs/max-inflight-receive-batches) s/Int
    :sqs/region s/Str
    :onyx/batch-size max-batch-size
    :sqs/deserializer-fn os/NamespacedKeyword

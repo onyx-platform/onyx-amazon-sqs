@@ -17,12 +17,11 @@ In your peer boot-up namespace:
           [onyx.plugin.sqs-output])
 ```
 
-#### ABS Limitations
+#### Limitations
 
-* Currently at least once
-* Need to check whether async writes and reads failed. For reads, retry, a few times and then die.
-* For writes, we need to throw so that the pipeline is reset. Could do this
-  without a throw, just need a special log message to realign
+This plugin currently only supports at least once behaviour.
+
+It is neccessary to respond to failed async writes. For reads that have timed out, they will automatically retry. For failed writes we have to re-align the barriers, which resets to the last checkpoint. 
 
 #### Functions
 
@@ -42,6 +41,8 @@ Catalog entry:
  :sqs/deserializer-fn :clojure.edn/read-string
  :sqs/attribute-names []
  :sqs/message-attribute-names []
+ ; :sqs/max-batch 10
+ ; :sqs/max-inflight-receive-batches 10
  :onyx/doc "Reads segments from an SQS queue"}
 ```
 
@@ -49,18 +50,19 @@ In lieu of `:sqs/queue-name`, the url of the queue can be suppied via `:sqs/queu
 
 SQS only supports batching up to 10 messages, which limits `:onyx/batch-size` to a maximum of 10.
 
-*NOTE*: `:onyx/pending-timeout` (in ms) should be shorter than your queue's VisibilityTimeout (in seconds), so that SQS does not trigger retries before Onyx's native retry mechanism.
-
 #### Attributes
 
-|key                           | type      | description
-|------------------------------|-----------|------------
-|`:sqs/deserializer-fn`        | `keyword` | A keyword pointing to a fully qualified function that will deserialize the :body of the queue entry from a string
-|`:sqs/region`                 | `string`  | The SQS region to use
-|`:sqs/queue-name`             | `string`  | The SQS queue name
-|`:sqs/queue-url`              | `string`  | The SQS queue url, in lieu of sqs/queue-name
-|`:sqs/attribute-names`        | `[string]`| A list of attributes to fetch for the queue entry. Default is to fetch no attributes. You can override it to fetch specific attributes or all (["All])
-|`:sqs/message-attribute-names`| `[string]`| A list of attributes to fetch for each message. Default is to fetch no message attributes. You can override it to fetch specific message attributes or all (["All])
+|key                                 | type      | description
+|------------------------------------|-----------|------------
+|`:sqs/deserializer-fn`              | `keyword` | A keyword pointing to a fully qualified function that will deserialize the :body of the queue entry from a string
+|`:sqs/region`                       | `string`  | The SQS region to use
+|`:sqs/queue-name`                   | `string`  | The SQS queue name
+|`:sqs/queue-url`                    | `string`  | The SQS queue url, in lieu of sqs/queue-name
+|`:sqs/attribute-names`              | `[string]`| A list of attributes to fetch for the queue entry. Default is to fetch no attributes. You can override it to fetch specific attributes or all (["All])
+|`:sqs/message-attribute-names`      | `[string]`| A list of attributes to fetch for each message. Default is to fetch no message attributes. You can override it to fetch specific message attributes or all (["All])
+|`:sqs/max-batch`                    | `string`  | Maximum number of messages read in a given batch.
+|`:sqs/max-inflight-receive-batches` | `string`  | Maximum number of batches to buffer up. :sqs/max-batch * :sqs/max-inflight-receive-batches = number of messages buffered by client before read by onyx.
+
 
 
 Possible attribute names can be found in the <a href="http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/com/amazonaws/services/sqs/model/ReceiveMessageRequest.html#withAttributeNames(java.util.Collection)">API documentation</a>.

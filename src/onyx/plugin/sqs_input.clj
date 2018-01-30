@@ -65,18 +65,15 @@
     false)
 
   p/Input
-  (poll! [this _ _]
+  (poll! [this event timeout-ms]
     (if-let [segment (first @batch)] 
-      (do
-       (vswap! batch rest)
-       (vswap! processing update @epoch conj (select-keys segment [:message-id :receipt-handle]))
-       segment)
-      (let [received (sqs/receive-messages client queue-url batch-size
-                                           attribute-names
-                                           message-attribute-names 0)
+      (do (vswap! batch rest)
+          (vswap! processing update @epoch conj (select-keys segment [:message-id :receipt-handle]))
+          segment)
+      (let [received (sqs/receive-messages client queue-url batch-size attribute-names message-attribute-names 0)
             deserialized (doall (map #(update % :body deserializer-fn) received))]
-        (vreset! batch deserialized)
-        nil))))
+        (if-not (empty? (vreset! batch deserialized)) 
+          (p/poll! this event timeout-ms))))))
 
 (defn read-handle-exception [event lifecycle lf-kw exception]
   :restart)
@@ -90,10 +87,13 @@
         batch-size (:onyx/batch-size task-map)
         batch-timeout (arg-or-default :onyx/batch-timeout task-map)
         {:keys [sqs/attribute-names sqs/message-attribute-names sqs/deserializer-fn 
+                sqs/max-inflight-receive-batches sqs/max-batch
                 sqs/queue-url sqs/queue-name sqs/region]} task-map
         deserializer-fn (kw->fn deserializer-fn)
         long-poll-timeout (int (/ batch-timeout 1000))
         client (sqs/new-async-buffered-client region {:max-batch-open-ms batch-timeout
+                                                      :max-inflight-receive-batches max-inflight-receive-batches
+                                                      :max-batch max-batch
                                                       :param-long-poll (not (zero? batch-timeout))
                                                       :long-poll-timeout long-poll-timeout})
         queue-url (or queue-url (sqs/get-queue-url client queue-name))
