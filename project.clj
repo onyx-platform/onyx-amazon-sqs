@@ -1,4 +1,4 @@
-(defproject org.onyxplatform/onyx-amazon-sqs "0.13.3.0-SNAPSHOT"
+(defproject org.onyxplatform/onyx-amazon-sqs "0.13.3.1-SNAPSHOT"
   :description "Onyx plugin for Amazon SQS"
   :url "https://github.com/onyx-platform/onyx-amazon-sqs"
   :license {:name "Eclipse Public License"
@@ -13,7 +13,7 @@
                              :sign-releases false}}
   :dependencies [[org.clojure/clojure "1.8.0"]
                  ^{:voom {:repo "git@github.com:onyx-platform/onyx.git" :branch "master"}}
-                 [org.onyxplatform/onyx "0.13.4-20180923_190756-g23569ca"]                                                                                                                                                                                                                                                                                                       
+                 [org.onyxplatform/onyx "0.13.3"]                                                                                                                                                                                                                                                                                                       
                  [com.amazonaws/aws-java-sdk-sqs "1.11.228"]]
   :global-vars  {*warn-on-reflection* true}
   :resource-paths ["resources/"]
