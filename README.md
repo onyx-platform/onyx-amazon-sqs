@@ -46,6 +46,13 @@ Catalog entry:
  :onyx/doc "Reads segments from an SQS queue"}
 ```
 
+Lifecycle entry:
+
+```clojure
+{:lifecycle/task <<TASK_NAME>>
+ :lifecycle/calls :onyx.plugin.sqs-input/input-calls}
+```
+
 In lieu of `:sqs/queue-name`, the url of the queue can be suppied via `:sqs/queue-url`.
 
 SQS only supports batching up to 10 messages, which limits `:onyx/batch-size` to a maximum of 10.
@@ -81,6 +88,13 @@ Catalog entry:
  :onyx/medium :sqs
  :onyx/batch-size 10
  :onyx/doc "Writes segments to SQS queues"}
+```
+
+Lifecycle entry:
+
+```clojure
+{:lifecycle/task <<TASK_NAME>>
+ :lifecycle/calls :onyx.plugin.sqs-output/output-calls}
 ```
 
 Segments received at this task must have a body key in string form, which will be written to the queue defined in the key `:sqs/queue-name`, OR `:sqs/queue-url` in the task-map, or via the key `:queue-url` in the segment. Note that queue-name and queue-url are in different formats, with the queue-name being in the form `"yourqueuename"` and queue-url in the form `https://sqs.us-east-1.amazonaws.com/039384834151/e3668c38-4`.
